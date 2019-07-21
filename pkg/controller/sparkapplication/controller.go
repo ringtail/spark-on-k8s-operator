@@ -21,7 +21,6 @@ import (
 	"os/exec"
 	"reflect"
 	"time"
-
 	"github.com/golang/glog"
 	"github.com/google/uuid"
 	"golang.org/x/time/rate"
@@ -35,10 +34,14 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kubernetes-incubator/cluster-capacity/cmd/cluster-capacity/app/options"
+	"github.com/kubernetes-incubator/cluster-capacity/pkg/framework"
 
 	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/apis/sparkoperator.k8s.io/v1beta1"
 	crdclientset "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/client/clientset/versioned"
@@ -47,6 +50,7 @@ import (
 	crdlisters "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/client/listers/sparkoperator.k8s.io/v1beta1"
 	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/config"
 	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/util"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -65,6 +69,8 @@ var (
 // Controller manages instances of SparkApplication.
 type Controller struct {
 	crdClient         crdclientset.Interface
+	kubeConfig        string
+	config            *rest.Config
 	kubeClient        clientset.Interface
 	queue             workqueue.RateLimitingInterface
 	cacheSynced       cache.InformerSynced
@@ -78,6 +84,8 @@ type Controller struct {
 // NewController creates a new Controller.
 func NewController(
 	crdClient crdclientset.Interface,
+	kubeConfig *string,
+	config *rest.Config,
 	kubeClient clientset.Interface,
 	crdInformerFactory crdinformers.SharedInformerFactory,
 	podInformerFactory informers.SharedInformerFactory,
@@ -93,11 +101,13 @@ func NewController(
 	})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, apiv1.EventSource{Component: "spark-operator"})
 
-	return newSparkApplicationController(crdClient, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat)
+	return newSparkApplicationController(crdClient, kubeConfig, config, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat)
 }
 
 func newSparkApplicationController(
 	crdClient crdclientset.Interface,
+	kubeConfig *string,
+	config *rest.Config,
 	kubeClient clientset.Interface,
 	crdInformerFactory crdinformers.SharedInformerFactory,
 	podInformerFactory informers.SharedInformerFactory,
@@ -108,6 +118,8 @@ func newSparkApplicationController(
 		"spark-application-controller")
 
 	controller := &Controller{
+		kubeConfig:       *kubeConfig,
+		config:           config,
 		crdClient:        crdClient,
 		kubeClient:       kubeClient,
 		recorder:         eventRecorder,
@@ -471,6 +483,74 @@ func shouldRetry(app *v1beta1.SparkApplication) bool {
 //|                                             +-------------------------------+                                      |
 //|                                                                                                                    |
 //+--------------------------------------------------------------------------------------------------------------------+
+func (c *Controller) checkResourceAllocable(app v1beta1.SparkApplication) (bool, error) {
+	opt := &options.ClusterCapacityOptions{}
+	opt.Kubeconfig = c.kubeConfig
+	conf := options.NewClusterCapacityConfig(opt)
+	conf.KubeClient = c.kubeClient
+	err := conf.SetDefaultScheduler()
+	if err != nil {
+		glog.Errorf("Failed to SetDefaultScheduler,because of %v ", err)
+		return false, nil
+	}
+
+	pod := apiv1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "spark-executor-pod",
+			Namespace: app.Namespace,
+			Labels: map[string]string{
+				"spark-application": "simulator",
+			},
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				apiv1.Container{
+					Name:                     "spark-executor-container",
+					Image:                    "busybox:latest",
+					TerminationMessagePolicy: apiv1.TerminationMessageFallbackToLogsOnError,
+					Resources: apiv1.ResourceRequirements{
+						Requests: apiv1.ResourceList{
+							apiv1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%f", *app.Spec.Executor.Cores)),
+							apiv1.ResourceMemory: resource.MustParse(*app.Spec.Executor.Memory),
+						},
+					},
+				},
+			},
+			SchedulerName: "cluster-capacity",
+			DNSPolicy:     apiv1.DNSClusterFirst,
+			RestartPolicy: apiv1.RestartPolicyAlways,
+		},
+	}
+
+	cc, err := framework.New(conf.DefaultSchedulerConfig, &pod, int(*app.Spec.Executor.Instances))
+	if err != nil {
+		glog.Errorf("Failed to initialize simulate framework,because of %v", err)
+		return false, err
+	}
+	err = cc.SyncWithClient(c.kubeClient)
+	if err != nil {
+		glog.Errorf("Failed to SyncWithClient,because of %v", err)
+		return false, err
+	}
+	err = cc.Run()
+	if err != nil {
+		glog.Errorf("Failed to simulate spark job resource capacity,because of %v", err)
+		return false, err
+	}
+	r := cc.Report()
+
+	glog.Infof("Spark application %s:%s,desired replicas is %d and capacity is %d", app.Namespace, app.Name, *app.Spec.Executor.Instances, r.Status.Replicas)
+
+	if r.Status.Replicas >= *app.Spec.Executor.Instances {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("Desired instances is %d,but capacity is %d", *app.Spec.Executor.Instances, r.Status.Replicas)
+}
 
 func (c *Controller) syncSparkApplication(key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
@@ -491,6 +571,20 @@ func (c *Controller) syncSparkApplication(key string) error {
 	}
 
 	appToUpdate := app.DeepCopy()
+
+	switch appToUpdate.Status.AppState.State {
+	case v1beta1.NewState, v1beta1.PendingRerunState:
+		if passed, err := c.checkResourceAllocable(*appToUpdate); !passed {
+			glog.Warningf("SparkApplication %s don't have enough resource and wait for retry,because of %v", app.Name, err)
+			c.recorder.Eventf(
+				app,
+				apiv1.EventTypeWarning,
+				"NotEnoughResource",
+				"SparkApplication %s don't have enough resource and wait for retry,because of %v",
+				app.Name, err)
+			return nil
+		}
+	}
 
 	// Take action based on application state.
 	switch appToUpdate.Status.AppState.State {
