@@ -454,6 +454,9 @@ type SparkPodSpec struct {
 	// DnsPolicy settings for pod.
 	// +optional
 	DNSPolicy apiv1.DNSPolicy `json:"dnsPolicy,omitempty"`
+	// Termination grace periond seconds for the pod
+	// +optional
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 }
 
 // DriverSpec is specification of the driver.
@@ -478,6 +481,9 @@ type DriverSpec struct {
 	// GC settings or other logging.
 	// +optional
 	JavaOptions *string `json:"javaOptions,omitempty"`
+	// Lifecycle for running preStop or postStart commands
+	// +optional
+	Lifecycle *apiv1.Lifecycle `json:"lifecycle,omitempty"`
 }
 
 // ExecutorSpec is specification of the executor.
