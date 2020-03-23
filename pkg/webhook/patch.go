@@ -54,7 +54,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addSparkConfigMap(pod, app)...)
 	patchOps = append(patchOps, addHadoopConfigMap(pod, app)...)
 	patchOps = append(patchOps, addPrometheusConfigMap(pod, app)...)
-	patchOps = append(patchOps, addTolerations(pod, app)...)
+	//patchOps = append(patchOps, addTolerations(pod, app)...)
 	patchOps = append(patchOps, addSidecarContainers(pod, app)...)
 	patchOps = append(patchOps, addInitContainers(pod, app)...)
 	patchOps = append(patchOps, addHostNetwork(pod, app)...)

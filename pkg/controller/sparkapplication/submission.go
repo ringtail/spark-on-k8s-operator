@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/kubernetes/pkg/apis/policy"
 
@@ -122,6 +122,22 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	if app.Spec.MemoryOverheadFactor != nil {
 		args = append(args, "--conf",
 			fmt.Sprintf("%s=%s", config.SparkMemoryOverheadFactor, *app.Spec.MemoryOverheadFactor))
+	}
+
+	// add toleration options to driver pod
+	if app.Spec.Driver.Tolerations != nil {
+		tolerationMap := buildTolerationsOptions(config.SparkDriverTolerationsPrefix, app.Spec.Driver.Tolerations)
+		for tolerationKey, tolerationValue := range tolerationMap {
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+		}
+	}
+
+	// add toleration options to executor pod 
+	if app.Spec.Executor.Tolerations != nil {
+		tolerationMap := buildTolerationsOptions(config.SparkExecutorTolerationsPrefix, app.Spec.Executor.Tolerations)
+		for tolerationKey, tolerationValue := range tolerationMap {
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+		}
 	}
 
 	// Operator triggered spark-submit should never wait for App completion
@@ -436,4 +452,16 @@ func buildLocalVolumeOptions(prefix string, volume v1.Volume, volumeMount v1.Vol
 	}
 
 	return options
+}
+
+func buildTolerationsOptions(prefix string, tolerations []v1.Toleration) map[string]string {
+	tolerationsMap := make(map[string]string)
+	for _, toleration := range tolerations {
+		key := toleration.Key
+		if key == "" {
+			key = "*"
+		}
+		tolerationsMap[fmt.Sprintf("%s%s", prefix, key)] = fmt.Sprintf("%s:%s:%s", toleration.Value, toleration.Operator, toleration.Effect)
+	}
+	return tolerationsMap
 }
