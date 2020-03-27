@@ -71,8 +71,8 @@ var (
 	leaderElectionLeaseDuration    = flag.Duration("leader-election-lease-duration", 15*time.Second, "Leader election lease duration.")
 	leaderElectionRenewDeadline    = flag.Duration("leader-election-renew-deadline", 14*time.Second, "Leader election renew deadline.")
 	leaderElectionRetryPeriod      = flag.Duration("leader-election-retry-period", 4*time.Second, "Leader election retry period.")
-	enableBatchScheduler           = flag.Bool("enable-batch-scheduler", false,
-		fmt.Sprintf("Enable batch schedulers for pods' scheduling, the available batch schedulers are: (%s).", strings.Join(batchscheduler.GetRegisteredNames(), ",")))
+	enableBatchScheduler           = flag.Bool("enable-batch-scheduler", false, fmt.Sprintf("Enable batch schedulers for pods' scheduling, the available batch schedulers are: (%s).", strings.Join(batchscheduler.GetRegisteredNames(), ",")))
+	alibabaCloudFeatureGates       = flag.Bool("alibaba-cloud-feature-gates", false, "enable Alibaba Cloud feature gates.")
 )
 
 func main() {
@@ -170,7 +170,7 @@ func main() {
 	}
 
 	applicationController := sparkapplication.NewController(
-		crClient, kubeClient, crInformerFactory, podInformerFactory, metricConfig, *namespace, *ingressURLFormat, batchSchedulerMgr)
+		crClient, kubeClient, crInformerFactory, podInformerFactory, metricConfig, *namespace, *ingressURLFormat, batchSchedulerMgr, alibabaCloudFeatureGates)
 	scheduledApplicationController := scheduledsparkapplication.NewController(
 		crClient, kubeClient, apiExtensionsClient, crInformerFactory, clock.RealClock{})
 

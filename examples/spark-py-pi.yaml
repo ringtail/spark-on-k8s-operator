@@ -19,7 +19,7 @@
 
 
 # @alibabacloud we haven't support pyspark now.
-# TODO we will support this feature in next release 
+# TODO we will support this feature in next release
 apiVersion: "sparkoperator.k8s.io/v1beta2"
 kind: SparkApplication
 metadata:
