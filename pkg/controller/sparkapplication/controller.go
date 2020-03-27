@@ -35,7 +35,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1 "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
@@ -43,7 +43,7 @@ import (
 
 	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/apis/sparkoperator.k8s.io/v1beta2"
 	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/batchscheduler"
-	schedulerinterface "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/batchscheduler/interface"
+	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/batchscheduler/interface"
 	crdclientset "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/client/clientset/versioned"
 	crdscheme "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/client/clientset/versioned/scheme"
 	crdinformers "github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/client/informers/externalversions"
@@ -66,16 +66,17 @@ var (
 
 // Controller manages instances of SparkApplication.
 type Controller struct {
-	crdClient         crdclientset.Interface
-	kubeClient        clientset.Interface
-	queue             workqueue.RateLimitingInterface
-	cacheSynced       cache.InformerSynced
-	recorder          record.EventRecorder
-	metrics           *sparkAppMetrics
-	applicationLister crdlisters.SparkApplicationLister
-	podLister         v1.PodLister
-	ingressURLFormat  string
-	batchSchedulerMgr *batchscheduler.SchedulerManager
+	crdClient                crdclientset.Interface
+	kubeClient               clientset.Interface
+	queue                    workqueue.RateLimitingInterface
+	cacheSynced              cache.InformerSynced
+	recorder                 record.EventRecorder
+	metrics                  *sparkAppMetrics
+	applicationLister        crdlisters.SparkApplicationLister
+	podLister                v1.PodLister
+	ingressURLFormat         string
+	batchSchedulerMgr        *batchscheduler.SchedulerManager
+	alibabaCloudFeatureGates bool
 }
 
 // NewController creates a new Controller.
@@ -87,7 +88,8 @@ func NewController(
 	metricsConfig *util.MetricConfig,
 	namespace string,
 	ingressURLFormat string,
-	batchSchedulerMgr *batchscheduler.SchedulerManager) *Controller {
+	batchSchedulerMgr *batchscheduler.SchedulerManager,
+	alibabaCloudFeatureGates bool) *Controller {
 	crdscheme.AddToScheme(scheme.Scheme)
 
 	eventBroadcaster := record.NewBroadcaster()
@@ -97,7 +99,7 @@ func NewController(
 	})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, apiv1.EventSource{Component: "spark-operator"})
 
-	return newSparkApplicationController(crdClient, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat, batchSchedulerMgr)
+	return newSparkApplicationController(crdClient, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat, batchSchedulerMgr, alibabaCloudFeatureGates)
 }
 
 func newSparkApplicationController(
@@ -108,17 +110,19 @@ func newSparkApplicationController(
 	eventRecorder record.EventRecorder,
 	metricsConfig *util.MetricConfig,
 	ingressURLFormat string,
-	batchSchedulerMgr *batchscheduler.SchedulerManager) *Controller {
+	batchSchedulerMgr *batchscheduler.SchedulerManager,
+	alibabaCloudFeatureGates bool) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(queueTokenRefillRate), queueTokenBucketSize)},
 		"spark-application-controller")
 
 	controller := &Controller{
-		crdClient:         crdClient,
-		kubeClient:        kubeClient,
-		recorder:          eventRecorder,
-		queue:             queue,
-		ingressURLFormat:  ingressURLFormat,
-		batchSchedulerMgr: batchSchedulerMgr,
+		crdClient:                crdClient,
+		kubeClient:               kubeClient,
+		recorder:                 eventRecorder,
+		queue:                    queue,
+		ingressURLFormat:         ingressURLFormat,
+		batchSchedulerMgr:        batchSchedulerMgr,
+		alibabaCloudFeatureGates: alibabaCloudFeatureGates,
 	}
 
 	if metricsConfig != nil {
@@ -637,7 +641,7 @@ func (c *Controller) submitSparkApplication(app *v1beta2.SparkApplication) *v1be
 
 	driverPodName := getDriverPodName(app)
 	submissionID := uuid.New().String()
-	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID)
+	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID,c.alibabaCloudFeatureGates)
 	if err != nil {
 		app.Status = v1beta2.SparkApplicationStatus{
 			AppState: v1beta2.ApplicationState{

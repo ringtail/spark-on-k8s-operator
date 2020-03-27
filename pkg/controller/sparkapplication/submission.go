@@ -84,7 +84,7 @@ func runSparkSubmit(submission *submission) (bool, error) {
 	return true, nil
 }
 
-func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName string, submissionID string) ([]string, error) {
+func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName string, submissionID string, alibabaCloudFeatureGates bool) ([]string, error) {
 	var args []string
 	if app.Spec.MainClass != nil {
 		args = append(args, "--class", *app.Spec.MainClass)
@@ -124,19 +124,21 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 			fmt.Sprintf("%s=%s", config.SparkMemoryOverheadFactor, *app.Spec.MemoryOverheadFactor))
 	}
 
-	// add toleration options to driver pod
-	if app.Spec.Driver.Tolerations != nil {
-		tolerationMap := buildTolerationsOptions(config.SparkDriverTolerationsPrefix, app.Spec.Driver.Tolerations)
-		for tolerationKey, tolerationValue := range tolerationMap {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+	if alibabaCloudFeatureGates == true {
+		// add toleration options to driver pod
+		if app.Spec.Driver.Tolerations != nil {
+			tolerationMap := buildTolerationsOptions(config.SparkDriverTolerationsPrefix, app.Spec.Driver.Tolerations)
+			for tolerationKey, tolerationValue := range tolerationMap {
+				args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+			}
 		}
-	}
 
-	// add toleration options to executor pod 
-	if app.Spec.Executor.Tolerations != nil {
-		tolerationMap := buildTolerationsOptions(config.SparkExecutorTolerationsPrefix, app.Spec.Executor.Tolerations)
-		for tolerationKey, tolerationValue := range tolerationMap {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+		// add toleration options to executor pod
+		if app.Spec.Executor.Tolerations != nil {
+			tolerationMap := buildTolerationsOptions(config.SparkExecutorTolerationsPrefix, app.Spec.Executor.Tolerations)
+			for tolerationKey, tolerationValue := range tolerationMap {
+				args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
+			}
 		}
 	}
 
