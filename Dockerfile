@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-ARG SPARK_IMAGE=registry.ap-southeast-1.aliyuncs.com/acs/spark:ack-2.4.5-c51bb6f-test
+ARG SPARK_IMAGE=registry.ap-southeast-1.aliyuncs.com/acs/spark:ack-2.4.5-latest
 
 FROM golang:1.12.5-alpine as builder
 ARG DEP_VERSION="0.5.3"
