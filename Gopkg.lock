@@ -1126,6 +1126,8 @@
   digest = "1:196c0fe087e94a5dac71510ac816b73fe65dc90dc32d390e008299d7c42a679f"
   name = "k8s.io/kubernetes"
   packages = [
+    "pkg/apis/core",
+    "pkg/apis/policy",
     "pkg/kubectl/describe",
     "pkg/kubectl/describe/versioned",
     "pkg/kubectl/scheme",
@@ -1251,6 +1253,7 @@
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
     "k8s.io/code-generator/cmd/defaulter-gen",
+    "k8s.io/kubernetes/pkg/apis/policy",
     "k8s.io/kubernetes/pkg/kubectl/describe",
     "k8s.io/kubernetes/pkg/kubectl/describe/versioned",
     "k8s.io/kubernetes/pkg/util/interrupt",
