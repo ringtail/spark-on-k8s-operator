@@ -140,6 +140,14 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 				args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
 			}
 		}
+
+		if app.Spec.Driver.NodeName != nil {
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, app.Spec.Driver.NodeName))
+		}
+
+		if app.Spec.Executor.NodeName != nil {
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, app.Spec.Executor.NodeName))
+		}
 	}
 
 	// Operator triggered spark-submit should never wait for App completion

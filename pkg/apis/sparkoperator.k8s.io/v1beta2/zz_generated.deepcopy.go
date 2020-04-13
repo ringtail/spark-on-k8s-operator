@@ -741,6 +741,13 @@ func (in *SparkPodSpec) DeepCopyInto(out *SparkPodSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.EnvFrom != nil {
+		in, out := &in.EnvFrom, &out.EnvFrom
+		*out = make([]v1.EnvFromSource, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.EnvSecretKeyRefs != nil {
 		in, out := &in.EnvSecretKeyRefs, &out.EnvSecretKeyRefs
 		*out = make(map[string]NameKey, len(*in))
@@ -821,6 +828,11 @@ func (in *SparkPodSpec) DeepCopyInto(out *SparkPodSpec) {
 		in, out := &in.DNSConfig, &out.DNSConfig
 		*out = new(v1.PodDNSConfig)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.NodeName != nil {
+		in, out := &in.NodeName, &out.NodeName
+		*out = new(string)
+		**out = **in
 	}
 	return
 }
