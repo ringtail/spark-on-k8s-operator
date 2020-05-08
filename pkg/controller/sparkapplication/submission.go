@@ -18,6 +18,7 @@ package sparkapplication
 
 import (
 	"fmt"
+	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/util"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,7 +85,7 @@ func runSparkSubmit(submission *submission) (bool, error) {
 	return true, nil
 }
 
-func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName string, submissionID string, enableAlibabaCloudFeatureGates bool) ([]string, error) {
+func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName string, submissionID string, enableAlibabaCloudFeatureGates bool, alibabaCloudFeatureGates map[string]bool) ([]string, error) {
 	var args []string
 	if app.Spec.MainClass != nil {
 		args = append(args, "--class", *app.Spec.MainClass)
@@ -126,7 +127,7 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 
 	if enableAlibabaCloudFeatureGates == true {
 		// add toleration options to driver pod
-		if app.Spec.Driver.Tolerations != nil {
+		if app.Spec.Driver.Tolerations != nil && alibabaCloudFeatureGates[util.SparkConfToleration] {
 			tolerationMap := buildTolerationsOptions(config.SparkDriverTolerationsPrefix, app.Spec.Driver.Tolerations)
 			for tolerationKey, tolerationValue := range tolerationMap {
 				args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
@@ -134,18 +135,18 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 		}
 
 		// add toleration options to executor pod
-		if app.Spec.Executor.Tolerations != nil {
+		if app.Spec.Executor.Tolerations != nil && alibabaCloudFeatureGates[util.SparkConfToleration] {
 			tolerationMap := buildTolerationsOptions(config.SparkExecutorTolerationsPrefix, app.Spec.Executor.Tolerations)
 			for tolerationKey, tolerationValue := range tolerationMap {
 				args = append(args, "--conf", fmt.Sprintf("%s=%s", tolerationKey, tolerationValue))
 			}
 		}
 
-		if app.Spec.Driver.NodeName != nil {
+		if app.Spec.Driver.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
 			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, app.Spec.Driver.NodeName))
 		}
 
-		if app.Spec.Executor.NodeName != nil {
+		if app.Spec.Executor.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
 			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, app.Spec.Executor.NodeName))
 		}
 	}
@@ -174,14 +175,14 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	// Add the driver and executor configuration options.
 	// Note that when the controller submits the application, it expects that all dependencies are local
 	// so init-container is not needed and therefore no init-container image needs to be specified.
-	options, err := addDriverConfOptions(app, submissionID)
+	options, err := addDriverConfOptions(app, submissionID, enableAlibabaCloudFeatureGates, alibabaCloudFeatureGates)
 	if err != nil {
 		return nil, err
 	}
 	for _, option := range options {
 		args = append(args, "--conf", option)
 	}
-	options, err = addExecutorConfOptions(app, submissionID)
+	options, err = addExecutorConfOptions(app, submissionID, enableAlibabaCloudFeatureGates, alibabaCloudFeatureGates)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +253,7 @@ func addDependenciesConfOptions(app *v1beta2.SparkApplication) []string {
 	return depsConfOptions
 }
 
-func addDriverConfOptions(app *v1beta2.SparkApplication, submissionID string) ([]string, error) {
+func addDriverConfOptions(app *v1beta2.SparkApplication, submissionID string, enableAlibabaCloudFeatureGates bool, alibabaCloudFeatureGates map[string]bool) ([]string, error) {
 	var driverConfOptions []string
 
 	driverConfOptions = append(driverConfOptions,
@@ -314,12 +315,17 @@ func addDriverConfOptions(app *v1beta2.SparkApplication, submissionID string) ([
 	}
 
 	driverConfOptions = append(driverConfOptions, config.GetDriverSecretConfOptions(app)...)
-	driverConfOptions = append(driverConfOptions, config.GetDriverEnvVarConfOptions(app)...)
+
+	if enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfEnv] {
+		return driverConfOptions, nil
+	} else {
+		driverConfOptions = append(driverConfOptions, config.GetDriverEnvVarConfOptions(app)...)
+	}
 
 	return driverConfOptions, nil
 }
 
-func addExecutorConfOptions(app *v1beta2.SparkApplication, submissionID string) ([]string, error) {
+func addExecutorConfOptions(app *v1beta2.SparkApplication, submissionID string, enableAlibabaCloudFeatureGates bool, alibabaCloudFeatureGates map[string]bool) ([]string, error) {
 	var executorConfOptions []string
 
 	executorConfOptions = append(executorConfOptions,
@@ -387,7 +393,12 @@ func addExecutorConfOptions(app *v1beta2.SparkApplication, submissionID string) 
 	}
 
 	executorConfOptions = append(executorConfOptions, config.GetExecutorSecretConfOptions(app)...)
-	executorConfOptions = append(executorConfOptions, config.GetExecutorEnvVarConfOptions(app)...)
+
+	if enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfEnv] {
+		return executorConfOptions, nil
+	} else {
+		executorConfOptions = append(executorConfOptions, config.GetExecutorEnvVarConfOptions(app)...)
+	}
 
 	return executorConfOptions, nil
 }

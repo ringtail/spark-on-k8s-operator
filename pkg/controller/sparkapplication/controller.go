@@ -77,6 +77,7 @@ type Controller struct {
 	ingressURLFormat               string
 	batchSchedulerMgr              *batchscheduler.SchedulerManager
 	enableAlibabaCloudFeatureGates bool
+	alibabaCloudFeatureGates       map[string]bool
 }
 
 // NewController creates a new Controller.
@@ -89,7 +90,8 @@ func NewController(
 	namespace string,
 	ingressURLFormat string,
 	batchSchedulerMgr *batchscheduler.SchedulerManager,
-	enableAlibabaCloudFeatureGates bool) *Controller {
+	enableAlibabaCloudFeatureGates bool,
+	alibabaCloudFeatureGates map[string]bool) *Controller {
 	crdscheme.AddToScheme(scheme.Scheme)
 
 	eventBroadcaster := record.NewBroadcaster()
@@ -99,7 +101,7 @@ func NewController(
 	})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, apiv1.EventSource{Component: "spark-operator"})
 
-	return newSparkApplicationController(crdClient, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat, batchSchedulerMgr, enableAlibabaCloudFeatureGates)
+	return newSparkApplicationController(crdClient, kubeClient, crdInformerFactory, podInformerFactory, recorder, metricsConfig, ingressURLFormat, batchSchedulerMgr, enableAlibabaCloudFeatureGates, alibabaCloudFeatureGates)
 }
 
 func newSparkApplicationController(
@@ -111,7 +113,8 @@ func newSparkApplicationController(
 	metricsConfig *util.MetricConfig,
 	ingressURLFormat string,
 	batchSchedulerMgr *batchscheduler.SchedulerManager,
-	enableAlibabaCloudFeatureGates bool) *Controller {
+	enableAlibabaCloudFeatureGates bool,
+	alibabaCloudFeatureGates map[string]bool) *Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(queueTokenRefillRate), queueTokenBucketSize)},
 		"spark-application-controller")
 
@@ -123,6 +126,7 @@ func newSparkApplicationController(
 		ingressURLFormat:               ingressURLFormat,
 		batchSchedulerMgr:              batchSchedulerMgr,
 		enableAlibabaCloudFeatureGates: enableAlibabaCloudFeatureGates,
+		alibabaCloudFeatureGates:       alibabaCloudFeatureGates,
 	}
 
 	if metricsConfig != nil {
@@ -641,7 +645,7 @@ func (c *Controller) submitSparkApplication(app *v1beta2.SparkApplication) *v1be
 
 	driverPodName := getDriverPodName(app)
 	submissionID := uuid.New().String()
-	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID, c.enableAlibabaCloudFeatureGates)
+	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID, c.enableAlibabaCloudFeatureGates,c.alibabaCloudFeatureGates)
 	if err != nil {
 		app.Status = v1beta2.SparkApplicationStatus{
 			AppState: v1beta2.ApplicationState{

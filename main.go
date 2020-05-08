@@ -73,6 +73,7 @@ var (
 	leaderElectionRetryPeriod      = flag.Duration("leader-election-retry-period", 4*time.Second, "Leader election retry period.")
 	enableBatchScheduler           = flag.Bool("enable-batch-scheduler", false, fmt.Sprintf("Enable batch schedulers for pods' scheduling, the available batch schedulers are: (%s).", strings.Join(batchscheduler.GetRegisteredNames(), ",")))
 	enableAlibabaCloudFeatureGates = flag.Bool("enable-alibaba-cloud-feature-gates", false, "enable Alibaba Cloud feature gates.")
+	alibabaCloudFeatureGates       = flag.String("alibaba-cloud-feature-gates", "", "Alibaba Cloud feature gates options.")
 )
 
 func main() {
@@ -169,8 +170,9 @@ func main() {
 		util.InitializeMetrics(metricConfig)
 	}
 
+	alibabaCloudFeatureGatesMap := util.ConvertFeatureGatesToMap(*alibabaCloudFeatureGates)
 	applicationController := sparkapplication.NewController(
-		crClient, kubeClient, crInformerFactory, podInformerFactory, metricConfig, *namespace, *ingressURLFormat, batchSchedulerMgr, *enableAlibabaCloudFeatureGates)
+		crClient, kubeClient, crInformerFactory, podInformerFactory, metricConfig, *namespace, *ingressURLFormat, batchSchedulerMgr, *enableAlibabaCloudFeatureGates,alibabaCloudFeatureGatesMap)
 	scheduledApplicationController := scheduledsparkapplication.NewController(
 		crClient, kubeClient, apiExtensionsClient, crInformerFactory, clock.RealClock{})
 
