@@ -181,9 +181,27 @@ func addEnvVars(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation
 	if util.IsDriverPod(pod) {
 		envVars = app.Spec.Driver.Env
 		containerName = config.SparkDriverContainerName
+
+		envVarsDeprecated := app.Spec.Driver.EnvVars
+
+		for k, v := range envVarsDeprecated {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  k,
+				Value: v,
+			})
+		}
 	} else if util.IsExecutorPod(pod) {
 		envVars = app.Spec.Executor.Env
 		containerName = config.SparkExecutorContainerName
+
+		envVarsDeprecated := app.Spec.Executor.EnvVars
+
+		for k, v := range envVarsDeprecated {
+			envVars = append(envVars, corev1.EnvVar{
+				Name:  k,
+				Value: v,
+			})
+		}
 	}
 
 	i := 0
