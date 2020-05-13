@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.8
+    controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
   name: sparkapplications.sparkoperator.k8s.io
 spec:
@@ -366,6 +366,8 @@ spec:
                         type: string
                       type: array
                   type: object
+                dnsPolicy:
+                  type: string
                 env:
                   items:
                     properties:
@@ -948,7 +950,7 @@ spec:
                   type: string
                 memoryOverhead:
                   type: string
-                nodeName:omitempty:
+                nodeName:
                   type: string
                 nodeSelector:
                   additionalProperties:
@@ -1823,6 +1825,8 @@ spec:
                         type: string
                       type: array
                   type: object
+                dnsPolicy:
+                  type: string
                 env:
                   items:
                     properties:
@@ -2409,7 +2413,7 @@ spec:
                   type: string
                 memoryOverhead:
                   type: string
-                nodeName:omitempty:
+                nodeName:
                   type: string
                 nodeSelector:
                   additionalProperties:

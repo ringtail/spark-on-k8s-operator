@@ -5,16 +5,20 @@ import (
 )
 
 const (
-	SparkConfNodeName   = "SparkConfNodeName"
-	SparkConfToleration = "SparkConfToleration"
-	HideSparkConfEnv    = "HideSparkConfEnv"
+	SparkConfNodeName       = "SparkConfNodeName"
+	SparkConfToleration     = "SparkConfToleration"
+	HideSparkConfEnv        = "HideSparkConfEnv"
+	HideSparkConfLabel      = "HideSparkConfLabel"
+	HideSparkConfAnnotation = "HideSparkConfAnnotation"
 )
 
 var (
 	defaultFeatureGates = map[string]bool{
-		SparkConfNodeName:   true,
-		SparkConfToleration: true,
-		HideSparkConfEnv:    false,
+		SparkConfNodeName:       true,
+		SparkConfToleration:     true,
+		HideSparkConfEnv:        false,
+		HideSparkConfLabel:      false,
+		HideSparkConfAnnotation: false,
 	}
 )
 

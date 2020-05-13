@@ -294,14 +294,18 @@ func addDriverConfOptions(app *v1beta2.SparkApplication, submissionID string, en
 			fmt.Sprintf("%s=%s", config.SparkDriverServiceAccountName, *app.Spec.Driver.ServiceAccount))
 	}
 
-	for key, value := range app.Spec.Driver.Labels {
-		driverConfOptions = append(driverConfOptions,
-			fmt.Sprintf("%s%s=%s", config.SparkDriverLabelKeyPrefix, key, value))
+	if !(enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfLabel]) {
+		for key, value := range app.Spec.Driver.Labels {
+			driverConfOptions = append(driverConfOptions,
+				fmt.Sprintf("%s%s=%s", config.SparkDriverLabelKeyPrefix, key, value))
+		}
 	}
 
-	for key, value := range app.Spec.Driver.Annotations {
-		driverConfOptions = append(driverConfOptions,
-			fmt.Sprintf("%s%s=%s", config.SparkDriverAnnotationKeyPrefix, key, value))
+	if !(enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfAnnotation]) {
+		for key, value := range app.Spec.Driver.Annotations {
+			driverConfOptions = append(driverConfOptions,
+				fmt.Sprintf("%s%s=%s", config.SparkDriverAnnotationKeyPrefix, key, value))
+		}
 	}
 
 	for key, value := range app.Spec.Driver.EnvSecretKeyRefs {
@@ -372,14 +376,18 @@ func addExecutorConfOptions(app *v1beta2.SparkApplication, submissionID string, 
 			fmt.Sprintf("%s=%t", config.SparkExecutorDeleteOnTermination, *app.Spec.Executor.DeleteOnTermination))
 	}
 
-	for key, value := range app.Spec.Executor.Labels {
-		executorConfOptions = append(executorConfOptions,
-			fmt.Sprintf("%s%s=%s", config.SparkExecutorLabelKeyPrefix, key, value))
+	if !(enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfLabel]) {
+		for key, value := range app.Spec.Executor.Labels {
+			executorConfOptions = append(executorConfOptions,
+				fmt.Sprintf("%s%s=%s", config.SparkExecutorLabelKeyPrefix, key, value))
+		}
 	}
 
-	for key, value := range app.Spec.Executor.Annotations {
-		executorConfOptions = append(executorConfOptions,
-			fmt.Sprintf("%s%s=%s", config.SparkExecutorAnnotationKeyPrefix, key, value))
+	if !(enableAlibabaCloudFeatureGates && alibabaCloudFeatureGates[util.HideSparkConfAnnotation]) {
+		for key, value := range app.Spec.Executor.Annotations {
+			executorConfOptions = append(executorConfOptions,
+				fmt.Sprintf("%s%s=%s", config.SparkExecutorAnnotationKeyPrefix, key, value))
+		}
 	}
 
 	for key, value := range app.Spec.Executor.EnvSecretKeyRefs {
