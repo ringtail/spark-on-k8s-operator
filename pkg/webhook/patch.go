@@ -63,11 +63,8 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addEnvVars(pod, app)...)
 	patchOps = append(patchOps, addEnvFrom(pod, app)...)
 	patchOps = append(patchOps, addNodeName(pod, app)...)
-	<<<<<<< HEAD
 	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
-	====== =
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
-	>>>>>>> feature / annotations
 
 	op := addSchedulerName(pod, app)
 	if op != nil {
