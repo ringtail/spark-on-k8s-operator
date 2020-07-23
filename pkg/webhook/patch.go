@@ -63,6 +63,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addEnvVars(pod, app)...)
 	patchOps = append(patchOps, addEnvFrom(pod, app)...)
 	patchOps = append(patchOps, addNodeName(pod, app)...)
+	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
 
 	op := addSchedulerName(pod, app)
@@ -628,6 +629,23 @@ func addNodeName(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperatio
 	// For Pods with hostNetwork, explicitly set its DNS policy  to “ClusterFirstWithHostNet”
 	// Detail: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 	return ops
+}
+
+func addDnsPolicy(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var ops []patchOperation
+	var dnsPolicy corev1.DNSPolicy
+	if util.IsDriverPod(pod) && !util.IsHostNetwork(pod) {
+		dnsPolicy = app.Spec.Driver.DNSPolicy
+	}
+
+	if util.IsExecutorPod(pod) && !util.IsHostNetwork(pod) {
+		dnsPolicy = app.Spec.Executor.DNSPolicy
+	}
+
+	if dnsPolicy != "" {
+		ops = append(ops, patchOperation{Op: "add", Path: "/spec/dnsPolicy", Value: dnsPolicy})
+	}
+		return ops
 }
 
 func addAnnotations(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
