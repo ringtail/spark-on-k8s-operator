@@ -180,29 +180,52 @@ func addVolumeMount(pod *corev1.Pod, mount corev1.VolumeMount) patchOperation {
 func addEnvVars(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
 	var envVars []corev1.EnvVar
 	var containerName string
+
+	envVarsExist := make([]corev1.EnvVar, 0)
+	for _, container := range pod.Spec.Containers {
+		if container.Name == config.SparkDriverContainerName || containerName == config.SparkExecutorContainerName {
+			// set default values
+			envVarsExist = container.Env
+		}
+	}
+
 	if util.IsDriverPod(pod) {
 		envVars = app.Spec.Driver.Env
 		containerName = config.SparkDriverContainerName
-
 		envVarsDeprecated := app.Spec.Driver.EnvVars
 
 		for k, v := range envVarsDeprecated {
-			envVars = append(envVars, corev1.EnvVar{
-				Name:  k,
-				Value: v,
-			})
+			found := false
+			for _, env := range envVarsExist {
+				if env.Name == k {
+					found = true
+				}
+			}
+			if found == false {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  k,
+					Value: v,
+				})
+			}
 		}
 	} else if util.IsExecutorPod(pod) {
 		envVars = app.Spec.Executor.Env
 		containerName = config.SparkExecutorContainerName
-
 		envVarsDeprecated := app.Spec.Executor.EnvVars
 
 		for k, v := range envVarsDeprecated {
-			envVars = append(envVars, corev1.EnvVar{
-				Name:  k,
-				Value: v,
-			})
+			found := false
+			for _, env := range envVarsExist {
+				if env.Name == k {
+					found = true
+				}
+			}
+			if found == false {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  k,
+					Value: v,
+				})
+			}
 		}
 	}
 
