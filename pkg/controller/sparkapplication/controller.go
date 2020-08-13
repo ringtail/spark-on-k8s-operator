@@ -403,6 +403,10 @@ func fixExecutorStateWhenPanic(origin string, state v1beta2.ExecutorState, end m
 			} else {
 				newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
 			}
+		} else if len(arr) == 3 {
+			// append origin status timestamp
+			newStateArr = append(newStateArr, arr[1])
+			newStateArr = append(newStateArr, arr[2])
 		} else {
 			newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
 		}
@@ -462,6 +466,12 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 				glog.Infof("Executor pod %s not found, assuming it was deleted.", name)
 				app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], v1beta2.ExecutorFailedState, metav1.NewTime(time.Now()))
 			}
+		} else if !exists && notFoundEndTimestamp(oldStatus) {
+			state := convertToExecutorState(oldStatus)
+			if !isExecutorTerminated(state) {
+				state = v1beta2.ExecutorFailedState
+			}
+			app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], state, metav1.NewTime(time.Now()))
 		}
 	}
 
