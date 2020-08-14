@@ -668,7 +668,6 @@ func addDnsPolicy(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperati
 	if dnsPolicy != "" {
 		ops = append(ops, patchOperation{Op: "add", Path: "/spec/dnsPolicy", Value: dnsPolicy})
 	}
-	
 	return ops
 }
 
