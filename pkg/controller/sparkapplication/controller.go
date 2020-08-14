@@ -19,6 +19,7 @@ package sparkapplication
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -360,6 +361,59 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	return nil
 }
 
+// convert state-timestamp from string
+func convertToExecutorState(stateWithTimestamp string) v1beta2.ExecutorState {
+	if len(stateWithTimestamp) == 0 {
+		return ""
+	}
+	// uuid: State:Running Start:UTC End:UTC
+	if arr := strings.Split(stateWithTimestamp, " "); len(arr) >= 1 {
+		podState := arr[0]
+		if len(podState) != 0 {
+			podStatePair := strings.Split(podState, ":")
+			if len(podStatePair) == 2 {
+				return v1beta2.ExecutorState(podStatePair[1])
+			}
+		}
+	}
+	return ""
+}
+func convertFromExecutorState(state v1beta2.ExecutorState, start metav1.Time, end *metav1.Time) string {
+	arr := make([]string, 0)
+	arr = append(arr, fmt.Sprintf("State:%s", state))
+	if !start.IsZero() {
+		arr = append(arr, fmt.Sprintf("Start:%v", start.Format(time.RFC3339)))
+	}
+	if end != nil && !end.IsZero() {
+		arr = append(arr, fmt.Sprintf("End:%v", end.Format(time.RFC3339)))
+	}
+	return strings.Join(arr, " ")
+}
+
+func fixExecutorStateWhenPanic(origin string, state v1beta2.ExecutorState, end metav1.Time) string {
+	if arr := strings.Split(origin, " "); len(arr) == 1 {
+		return fmt.Sprintf("State:%s Start:%v End:%v", state, end.Format(time.RFC3339), end.Format(time.RFC3339))
+	} else {
+		newStateArr := make([]string, 0)
+		newStateArr = append(newStateArr, fmt.Sprintf("State:%s", state))
+		if len(arr) == 2 {
+			if strings.Contains(arr[1], "Start") {
+				newStateArr = append(newStateArr, arr[1])
+				newStateArr = append(newStateArr, fmt.Sprintf("End:%v", end.Format(time.RFC3339)))
+			} else {
+				newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
+			}
+		} else if len(arr) == 3 {
+			// append origin status timestamp
+			newStateArr = append(newStateArr, arr[1])
+			newStateArr = append(newStateArr, arr[2])
+		} else {
+			newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
+		}
+		return strings.Join(newStateArr, " ")
+	}
+}
+
 // getAndUpdateExecutorState lists the executor pods of the application
 // and updates the executor state based on the current phase of the pods.
 func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) error {
@@ -368,17 +422,17 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 		return err
 	}
 
-	executorStateMap := make(map[string]v1beta2.ExecutorState)
+	executorStateMap := make(map[string]string)
 	var executorApplicationID string
 	for _, pod := range pods {
 		if util.IsExecutorPod(pod) {
 			newState := podPhaseToExecutorState(pod.Status.Phase)
 			oldState, exists := app.Status.ExecutorState[pod.Name]
 			// Only record an executor event if the executor state is new or it has changed.
-			if !exists || newState != oldState {
+			if !exists || newState != convertToExecutorState(oldState) {
 				c.recordExecutorEvent(app, newState, pod.Name)
 			}
-			executorStateMap[pod.Name] = newState
+			executorStateMap[pod.Name] = convertFromExecutorState(newState, pod.CreationTimestamp, pod.DeletionTimestamp)
 
 			if executorApplicationID == "" {
 				executorApplicationID = getSparkApplicationID(pod)
@@ -393,7 +447,7 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 	}
 
 	if app.Status.ExecutorState == nil {
-		app.Status.ExecutorState = make(map[string]v1beta2.ExecutorState)
+		app.Status.ExecutorState = make(map[string]string)
 	}
 	for name, execStatus := range executorStateMap {
 		app.Status.ExecutorState[name] = execStatus
@@ -402,16 +456,22 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 	// Handle missing/deleted executors.
 	for name, oldStatus := range app.Status.ExecutorState {
 		_, exists := executorStateMap[name]
-		if !isExecutorTerminated(oldStatus) && !exists && !isDriverRunning(app) {
+		if !isExecutorTerminated(convertToExecutorState(oldStatus)) && !exists && !isDriverRunning(app) {
 			// If ApplicationState is SUCCEEDING, in other words, the driver pod has been completed
 			// successfully. The executor pods terminate and are cleaned up, so we could not found
 			// the executor pod, under this circumstances, we assume the executor pod are completed.
 			if app.Status.AppState.State == v1beta2.SucceedingState {
-				app.Status.ExecutorState[name] = v1beta2.ExecutorCompletedState
+				app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], v1beta2.ExecutorCompletedState, metav1.NewTime(time.Now()))
 			} else {
 				glog.Infof("Executor pod %s not found, assuming it was deleted.", name)
-				app.Status.ExecutorState[name] = v1beta2.ExecutorFailedState
+				app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], v1beta2.ExecutorFailedState, metav1.NewTime(time.Now()))
 			}
+		} else if !exists && notFoundEndTimestamp(oldStatus) {
+			state := convertToExecutorState(oldStatus)
+			if !isExecutorTerminated(state) {
+				state = v1beta2.ExecutorFailedState
+			}
+			app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], state, metav1.NewTime(time.Now()))
 		}
 	}
 
@@ -645,7 +705,7 @@ func (c *Controller) submitSparkApplication(app *v1beta2.SparkApplication) *v1be
 
 	driverPodName := getDriverPodName(app)
 	submissionID := uuid.New().String()
-	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID, c.enableAlibabaCloudFeatureGates,c.alibabaCloudFeatureGates)
+	submissionCmdArgs, err := buildSubmissionCommandArgs(app, driverPodName, submissionID, c.enableAlibabaCloudFeatureGates, c.alibabaCloudFeatureGates)
 	if err != nil {
 		app.Status = v1beta2.SparkApplicationStatus{
 			AppState: v1beta2.ApplicationState{
