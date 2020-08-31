@@ -454,6 +454,10 @@ type SparkPodSpec struct {
 	// DnsPolicy settings for pod.
 	// +optional
 	DNSPolicy apiv1.DNSPolicy `json:"dnsPolicy,omitempty"`
+	// runtime class for pod
+	// support kata container
+	// +optional
+	RuntimeClassName string `json:"runtimeClassName,omitempty"`
 }
 
 // DriverSpec is specification of the driver.
