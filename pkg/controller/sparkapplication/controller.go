@@ -478,6 +478,15 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 	return nil
 }
 
+// some pods would miss end timestamp
+func notFoundEndTimestamp(oldStatus string) bool {
+	if strings.Contains(oldStatus, "End") {
+		return true
+	}
+	return false
+}
+
+
 func (c *Controller) getAndUpdateAppState(app *v1beta2.SparkApplication) error {
 	if err := c.getAndUpdateDriverState(app); err != nil {
 		return err
