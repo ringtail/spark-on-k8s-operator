@@ -283,7 +283,8 @@ const (
 	// SparkDriverContainerName is name of driver container in spark driver pod
 	SparkDriverContainerName = "spark-kubernetes-driver"
 	// SparkExecutorContainerName is name of executor container in spark executor pod
-	SparkExecutorContainerName = "executor"
+	SparkExecutorContainerName         = "executor"
+	SparkExecutorContainerNameVersion3 = "spark-kubernetes-executor"
 
 	// SparkLocalDirVolumePrefix is the volume name prefix for "scratch" space directory
 	SparkLocalDirVolumePrefix = "spark-local-dir-"

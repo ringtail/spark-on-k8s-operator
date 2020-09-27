@@ -170,7 +170,8 @@ func addVolumeMount(pod *corev1.Pod, mount corev1.VolumeMount) patchOperation {
 	// Find the driver or executor container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
 		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
-			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerNameVersion3 {
 			break
 		}
 	}
@@ -194,7 +195,9 @@ func addEnvVars(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation
 
 	envVarsExist := make([]corev1.EnvVar, 0)
 	for _, container := range pod.Spec.Containers {
-		if container.Name == config.SparkDriverContainerName || containerName == config.SparkExecutorContainerName {
+		if container.Name == config.SparkDriverContainerName ||
+			container.Name == config.SparkExecutorContainerName ||
+			container.Name == config.SparkExecutorContainerNameVersion3 {
 			// set default values
 			envVarsExist = container.Env
 		}
@@ -221,7 +224,9 @@ func addEnvVars(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation
 		}
 	} else if util.IsExecutorPod(pod) {
 		envVars = app.Spec.Executor.Env
-		containerName = config.SparkExecutorContainerName
+		if containerName = getExecutorContainerName(pod); containerName == "" {
+			containerName = config.SparkExecutorContainerName
+		}
 		envVarsDeprecated := app.Spec.Executor.EnvVars
 
 		for k, v := range envVarsDeprecated {
@@ -279,7 +284,9 @@ func addEnvFrom(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation
 		containerName = config.SparkDriverContainerName
 	} else if util.IsExecutorPod(pod) {
 		envFrom = app.Spec.Executor.EnvFrom
-		containerName = config.SparkExecutorContainerName
+		if containerName = getExecutorContainerName(pod); containerName == "" {
+			containerName = config.SparkExecutorContainerName
+		}
 	}
 
 	i := 0
@@ -318,7 +325,8 @@ func addEnvironmentVariable(pod *corev1.Pod, envName, envValue string) patchOper
 	// Find the driver or executor container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
 		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
-			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerNameVersion3 {
 			break
 		}
 	}
@@ -607,7 +615,8 @@ func addGPU(pod *corev1.Pod, app *v1beta2.SparkApplication) *patchOperation {
 	// Find the driver or executor container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
 		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
-			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerNameVersion3 {
 			break
 		}
 	}
@@ -752,4 +761,15 @@ func addPodLifeCycleConfig(pod *corev1.Pod, app *v1beta2.SparkApplication) *patc
 	}
 	path := fmt.Sprintf("/spec/containers/%d/lifecycle", i)
 	return &patchOperation{Op: "add", Path: path, Value: *lifeCycle}
+}
+
+// return container name
+func getExecutorContainerName(pod *corev1.Pod) string {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == config.SparkExecutorContainerNameVersion3 ||
+			container.Name == config.SparkExecutorContainerName {
+			return container.Name
+		}
+	}
+	return ""
 }
