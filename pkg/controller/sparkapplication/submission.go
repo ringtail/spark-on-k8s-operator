@@ -143,11 +143,11 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 		}
 
 		if app.Spec.Driver.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, app.Spec.Driver.NodeName))
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, *app.Spec.Driver.NodeName))
 		}
 
 		if app.Spec.Executor.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, app.Spec.Executor.NodeName))
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, *app.Spec.Executor.NodeName))
 		}
 	}
 
