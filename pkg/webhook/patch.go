@@ -65,6 +65,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addNodeName(pod, app)...)
 	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
+	patchOps = append(patchOps, addCustomResources(pod, app)...)
 
 	op := addSchedulerName(pod, app)
 	if op != nil {
@@ -699,6 +700,38 @@ func addAnnotations(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOpera
 	ops = append(ops, patchOperation{Op: "add", Path: "/metadata/annotations", Value: annotations})
 	// For Pods with hostNetwork, explicitly set its DNS policy  to “ClusterFirstWithHostNet”
 	// Detail: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+	return ops
+}
+
+func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var resource corev1.ResourceRequirements
+	ops := make([]patchOperation, 0)
+	if util.IsDriverPod(pod) {
+		resource = app.Spec.Driver.CustomResources
+	}
+	if util.IsExecutorPod(pod) {
+		resource = app.Spec.Executor.CustomResources
+	}
+
+	i := 0
+	// Find the driver or executor container in the pod.
+	for ; i < len(pod.Spec.Containers); i++ {
+		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			break
+		}
+	}
+	requestsPath := fmt.Sprintf("/spec/containers/%d/resources/requests", i)
+	limitsPath := fmt.Sprintf("/spec/containers/%d/resources/limits", i)
+
+	if len(resource.Requests) != 0 {
+		ops = append(ops, patchOperation{Op: "add", Path: requestsPath, Value: resource.Requests})
+	}
+
+	if len(resource.Limits) != 0 {
+		ops = append(ops, patchOperation{Op: "add", Path: limitsPath, Value: resource.Limits})
+	}
+
 	return ops
 }
 
