@@ -104,6 +104,11 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	// Add application dependencies.
 	args = append(args, addDependenciesConfOptions(app)...)
 
+	// Add proxy user
+	if app.Spec.ProxyUser != nil {
+		args = append(args, "--proxy-user", *app.Spec.ProxyUser)
+	}
+
 	if app.Spec.Image != nil {
 		args = append(args, "--conf",
 			fmt.Sprintf("%s=%s", config.SparkContainerImageKey, *app.Spec.Image))
