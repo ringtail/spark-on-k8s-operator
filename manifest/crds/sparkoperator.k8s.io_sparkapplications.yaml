@@ -3785,7 +3785,17 @@ spec:
               type: object
             driverInfo:
               properties:
+                creationTimestamp:
+                  format: date-time
+                  nullable: true
+                  type: string
                 podName:
+                  type: string
+                podState:
+                  type: string
+                terminationTime:
+                  format: date-time
+                  nullable: true
                   type: string
                 webUIAddress:
                   type: string
