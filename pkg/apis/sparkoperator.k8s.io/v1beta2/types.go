@@ -545,6 +545,11 @@ type DriverInfo struct {
 	WebUIIngressName    string `json:"webUIIngressName,omitempty"`
 	WebUIIngressAddress string `json:"webUIIngressAddress,omitempty"`
 	PodName             string `json:"podName,omitempty"`
+	PodState            string `json:"podState,omitempty" `
+	// +nullable
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
+	// +nullable
+	TerminationTime metav1.Time `json:"terminationTime,omitempty"`
 }
 
 // SecretInfo captures information of a secret.

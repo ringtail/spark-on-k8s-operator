@@ -334,10 +334,19 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	}
 
 	app.Status.SparkApplicationID = getSparkApplicationID(driverPod)
+	// reuse executor state as driver pod state 
+	app.Status.DriverInfo.PodState = string(podPhaseToExecutorState(driverPod.Status.Phase))
+	// add creationTimestamp
+	if app.Status.DriverInfo.CreationTimestamp.IsZero() {
+		app.Status.DriverInfo.CreationTimestamp = driverPod.CreationTimestamp
+	}
 
 	if driverPod.Status.Phase == apiv1.PodSucceeded || driverPod.Status.Phase == apiv1.PodFailed {
-		if app.Status.TerminationTime.IsZero() {
-			app.Status.TerminationTime = metav1.Now()
+		if app.Status.TerminationTime.IsZero() || app.Status.DriverInfo.TerminationTime.IsZero() {
+			now := metav1.Now()
+			app.Status.TerminationTime = now
+			// add terminationTime
+			app.Status.DriverInfo.TerminationTime = now
 		}
 		if driverPod.Status.Phase == apiv1.PodFailed {
 			if len(driverPod.Status.ContainerStatuses) > 0 {
@@ -485,7 +494,6 @@ func notFoundEndTimestamp(oldStatus string) bool {
 	}
 	return false
 }
-
 
 func (c *Controller) getAndUpdateAppState(app *v1beta2.SparkApplication) error {
 	if err := c.getAndUpdateDriverState(app); err != nil {
@@ -755,7 +763,9 @@ func (c *Controller) submitSparkApplication(app *v1beta2.SparkApplication) *v1be
 			State: v1beta2.SubmittedState,
 		},
 		DriverInfo: v1beta2.DriverInfo{
-			PodName: driverPodName,
+			PodName:           driverPodName,
+			CreationTimestamp: metav1.Time{},
+			TerminationTime:   metav1.Time{},
 		},
 		SubmissionAttempts:        app.Status.SubmissionAttempts + 1,
 		ExecutionAttempts:         app.Status.ExecutionAttempts + 1,
