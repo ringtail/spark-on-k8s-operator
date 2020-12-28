@@ -461,6 +461,9 @@ type SparkPodSpec struct {
 	// Termination grace periond seconds for the pod
 	// +optional
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// Resources to override
+	// +optional
+	CustomResources apiv1.ResourceRequirements `json:"customResources,omitempty"`
 }
 
 // DriverSpec is specification of the driver.
