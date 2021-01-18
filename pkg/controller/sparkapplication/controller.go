@@ -58,6 +58,7 @@ const (
 	podAlreadyExistsErrorCode = "code=409"
 	queueTokenRefillRate      = 50
 	queueTokenBucketSize      = 500
+	sparkApplicationState     = "spark-application-state"
 )
 
 var (
@@ -327,9 +328,19 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	}
 
 	if driverPod == nil {
-		app.Status.AppState.ErrorMessage = "Driver Pod not found"
-		app.Status.AppState.State = v1beta2.FailingState
-		app.Status.TerminationTime = metav1.Now()
+		if app.Status.AppState.State == v1beta2.KilledState {
+			app.Status.AppState.ErrorMessage = "Driver Pod was deleted"
+			if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
+				app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
+			}
+			if app.Status.TerminationTime.IsZero() {
+				app.Status.TerminationTime = metav1.Now()
+			}
+		} else {
+			app.Status.AppState.ErrorMessage = "Driver Pod not found"
+			app.Status.AppState.State = v1beta2.FailingState
+			app.Status.TerminationTime = metav1.Now()
+		}
 		return nil
 	}
 
@@ -475,13 +486,14 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 				glog.Infof("Executor pod %s not found, assuming it was deleted.", name)
 				app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], v1beta2.ExecutorFailedState, metav1.NewTime(time.Now()))
 			}
-		} else if !exists && notFoundEndTimestamp(oldStatus) {
-			state := convertToExecutorState(oldStatus)
-			if !isExecutorTerminated(state) {
-				state = v1beta2.ExecutorFailedState
-			}
-			app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], state, metav1.NewTime(time.Now()))
 		}
+		//} else if !exists && notFoundEndTimestamp(oldStatus) {
+		//	state := convertToExecutorState(oldStatus)
+		//	if !isExecutorTerminated(state) {
+		//		state = v1beta2.ExecutorFailedState
+		//	}
+		//	app.Status.ExecutorState[name] = fixExecutorStateWhenPanic(app.Status.ExecutorState[name], state, metav1.NewTime(time.Now()))
+		//}
 	}
 
 	return nil
@@ -502,6 +514,12 @@ func (c *Controller) getAndUpdateAppState(app *v1beta2.SparkApplication) error {
 	if err := c.getAndUpdateExecutorState(app); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (c *Controller) getAndUpdatePodsState(app *v1beta2.SparkApplication) error {
+	c.getAndUpdateDriverState(app)
+	c.getAndUpdateExecutorState(app)
 	return nil
 }
 
@@ -596,6 +614,13 @@ func (c *Controller) syncSparkApplication(key string) error {
 
 	appToUpdate := app.DeepCopy()
 
+	// first time and delete the pod
+	if labels := app.GetLabels(); labels[sparkApplicationState] == string(v1beta2.KilledState) && appToUpdate.Status.AppState.State != v1beta2.KilledState {
+		appToUpdate.Status.AppState.ErrorMessage = ""
+		appToUpdate.Status.AppState.State = v1beta2.KilledState
+		c.handleSparkApplicationDeletion(app)
+	}
+
 	// Take action based on application state.
 	switch appToUpdate.Status.AppState.State {
 	case v1beta2.NewState:
@@ -661,6 +686,11 @@ func (c *Controller) syncSparkApplication(key string) error {
 		if err := c.getAndUpdateAppState(appToUpdate); err != nil {
 			return err
 		}
+	case v1beta2.KilledState:
+		if err := c.getAndUpdatePodsState(appToUpdate); err != nil {
+			return err
+		}
+		c.recordSparkApplicationEvent(appToUpdate)
 	case v1beta2.CompletedState, v1beta2.FailedState:
 		if c.hasApplicationExpired(app) {
 			glog.Infof("Garbage collecting expired SparkApplication %s/%s", app.Namespace, app.Name)
@@ -1008,6 +1038,13 @@ func (c *Controller) recordSparkApplicationEvent(app *v1beta2.SparkApplication) 
 			apiv1.EventTypeWarning,
 			"SparkApplicationPendingRerun",
 			"SparkApplication %s is pending rerun",
+			app.Name)
+	case v1beta2.KilledState:
+		c.recorder.Eventf(
+			app,
+			apiv1.EventTypeNormal,
+			"SparkApplicationKilled",
+			"SparkApplication %s killed",
 			app.Name)
 	}
 }
