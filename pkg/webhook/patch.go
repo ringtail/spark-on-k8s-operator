@@ -713,16 +713,35 @@ func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchO
 		resource = app.Spec.Executor.CustomResources
 	}
 
+	var coreContainerRequests corev1.ResourceList
+	var coreContainerLimits corev1.ResourceList
+
 	i := 0
 	// Find the driver or executor container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
 		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
 			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			coreContainerRequests = pod.Spec.Containers[i].Resources.Requests
+			coreContainerLimits = pod.Spec.Containers[i].Resources.Requests
 			break
 		}
 	}
 	requestsPath := fmt.Sprintf("/spec/containers/%d/resources/requests", i)
 	limitsPath := fmt.Sprintf("/spec/containers/%d/resources/limits", i)
+
+	for k, v := range coreContainerRequests {
+		if resource.Requests == nil {
+			resource.Requests = make(corev1.ResourceList)
+		}
+		resource.Requests[k] = v
+	}
+	for k, v := range coreContainerLimits {
+		if resource.Limits == nil {
+			resource.Limits = make(corev1.ResourceList)
+		}
+		resource.Limits[k] = v
+
+	}
 
 	if len(resource.Requests) != 0 {
 		ops = append(ops, patchOperation{Op: "add", Path: requestsPath, Value: resource.Requests})
