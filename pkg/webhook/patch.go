@@ -713,42 +713,28 @@ func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchO
 		resource = app.Spec.Executor.CustomResources
 	}
 
-	var coreContainerRequests corev1.ResourceList
-	var coreContainerLimits corev1.ResourceList
-
 	i := 0
 	// Find the driver or executor container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
 		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
 			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
-			coreContainerRequests = pod.Spec.Containers[i].Resources.Requests
-			coreContainerLimits = pod.Spec.Containers[i].Resources.Requests
 			break
 		}
 	}
 	requestsPath := fmt.Sprintf("/spec/containers/%d/resources/requests", i)
 	limitsPath := fmt.Sprintf("/spec/containers/%d/resources/limits", i)
 
-	for k, v := range coreContainerRequests {
-		if resource.Requests == nil {
-			resource.Requests = make(corev1.ResourceList)
-		}
-		resource.Requests[k] = v
-	}
-	for k, v := range coreContainerLimits {
-		if resource.Limits == nil {
-			resource.Limits = make(corev1.ResourceList)
-		}
-		resource.Limits[k] = v
-
-	}
-
+	encoder := strings.NewReplacer("~", "~0", "/", "~1")
 	if len(resource.Requests) != 0 {
-		ops = append(ops, patchOperation{Op: "add", Path: requestsPath, Value: resource.Requests})
+		for k, v := range resource.Requests {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", requestsPath, encoder.Replace(string(k))), Value: v})
+		}
 	}
 
 	if len(resource.Limits) != 0 {
-		ops = append(ops, patchOperation{Op: "add", Path: limitsPath, Value: resource.Limits})
+		for k, v := range resource.Limits {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", limitsPath, encoder.Replace(string(k))), Value: v})
+		}
 	}
 
 	return ops
