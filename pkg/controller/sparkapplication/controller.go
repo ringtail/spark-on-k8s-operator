@@ -336,6 +336,9 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 			if app.Status.TerminationTime.IsZero() {
 				app.Status.TerminationTime = metav1.Now()
 			}
+			if app.Status.DriverInfo.TerminationTime.IsZero() {
+				app.Status.DriverInfo.TerminationTime = metav1.Now()
+			}
 		} else {
 			app.Status.AppState.ErrorMessage = "Driver Pod not found"
 			app.Status.AppState.State = v1beta2.FailingState
@@ -616,9 +619,10 @@ func (c *Controller) syncSparkApplication(key string) error {
 
 	// first time and delete the pod
 	if labels := app.GetLabels(); labels[sparkApplicationState] == string(v1beta2.KilledState) && appToUpdate.Status.AppState.State != v1beta2.KilledState {
+		c.handleSparkApplicationDeletion(app)
 		appToUpdate.Status.AppState.ErrorMessage = ""
 		appToUpdate.Status.AppState.State = v1beta2.KilledState
-		c.handleSparkApplicationDeletion(app)
+		return nil
 	}
 
 	// Take action based on application state.
