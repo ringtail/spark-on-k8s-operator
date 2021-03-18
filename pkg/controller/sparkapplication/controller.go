@@ -342,7 +342,19 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 		} else {
 			app.Status.AppState.ErrorMessage = "Driver Pod not found"
 			app.Status.AppState.State = v1beta2.FailingState
-			app.Status.TerminationTime = metav1.Now()
+
+			if app.Spec.RestartPolicy.Type == v1beta2.Never {
+				if app.Status.TerminationTime.IsZero() {
+					app.Status.TerminationTime = metav1.Now()
+				}
+				if app.Status.DriverInfo.TerminationTime.IsZero() {
+					app.Status.DriverInfo.TerminationTime = metav1.Now()
+				}
+
+				if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
+					app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
+				}
+			}
 		}
 		return nil
 	}
