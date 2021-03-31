@@ -396,6 +396,16 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	return nil
 }
 
+func isExecutorDone(state string) bool {
+	// uuid: State:Running Start:UTC End:UTC
+	if arr := strings.Split(state, " "); len(arr) == 3 {
+		if arr[0] == string(v1beta2.ExecutorCompletedState) || arr[0] == string(v1beta2.CompletedState) {
+			return true
+		}
+	}
+	return false
+}
+
 // convert state-timestamp from string
 func convertToExecutorState(stateWithTimestamp string) v1beta2.ExecutorState {
 	if len(stateWithTimestamp) == 0 {
@@ -678,6 +688,9 @@ func (c *Controller) syncSparkApplication(key string) error {
 		if !shouldRetry(appToUpdate) {
 			// App will never be retried. Move to terminal FailedState.
 			appToUpdate.Status.AppState.State = v1beta2.FailedState
+			if appToUpdate.Status.TerminationTime.IsZero() {
+				appToUpdate.Status.TerminationTime = metav1.Now()
+			}
 			c.recordSparkApplicationEvent(appToUpdate)
 		} else if hasRetryIntervalPassed(appToUpdate.Spec.RestartPolicy.OnSubmissionFailureRetryInterval, appToUpdate.Status.SubmissionAttempts, appToUpdate.Status.LastSubmissionAttemptTime) {
 			appToUpdate = c.submitSparkApplication(appToUpdate)
@@ -709,6 +722,9 @@ func (c *Controller) syncSparkApplication(key string) error {
 		}
 		c.recordSparkApplicationEvent(appToUpdate)
 	case v1beta2.CompletedState, v1beta2.FailedState:
+		if err := c.completedCRDAchieved(appToUpdate); err != nil {
+			return err
+		}
 		if c.hasApplicationExpired(app) {
 			glog.Infof("Garbage collecting expired SparkApplication %s/%s", app.Namespace, app.Name)
 			err := c.crdClient.SparkoperatorV1beta2().SparkApplications(app.Namespace).Delete(app.Name, metav1.NewDeleteOptions(0))
@@ -728,6 +744,33 @@ func (c *Controller) syncSparkApplication(key string) error {
 		}
 	}
 
+	return nil
+}
+
+func (c *Controller) completedCRDAchieved(appToUpdate *v1beta2.SparkApplication) error {
+	completed := true
+	driverInfo := appToUpdate.Status.DriverInfo
+	// driver is created but condition is not recorded correctly.
+	if driverInfo.PodName != "" &&
+		(driverInfo.TerminationTime.IsZero() ||
+			driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
+			driverInfo.PodState != string(v1beta2.ExecutorCompletedState)) {
+		completed = false
+	}
+
+	executorStatus := appToUpdate.Status.ExecutorState
+
+	for _, e := range executorStatus {
+		if !isExecutorDone(e) {
+			completed = false
+		}
+	}
+
+	if !completed {
+		if err := c.getAndUpdateAppState(appToUpdate); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
