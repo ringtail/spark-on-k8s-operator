@@ -386,6 +386,10 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 		}
 	}
 
+	if app.Status.AppState.State == v1beta2.CompletedState || app.Status.AppState.State == v1beta2.FailedState || app.Status.AppState.State == v1beta2.KilledState {
+		return nil
+	}
+
 	newState := driverStateToApplicationState(driverPod.Status)
 	// Only record a driver event if the application state (derived from the driver pod phase) has changed.
 	if newState != app.Status.AppState.State {
