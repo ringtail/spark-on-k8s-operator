@@ -3225,6 +3225,31 @@ spec:
               type: object
             sparkConfigMap:
               type: string
+            sparkUIOptions:
+              properties:
+                clusterIP:
+                  type: string
+                ingressAnnotations:
+                  additionalProperties:
+                    type: string
+                  type: object
+                ingressTLS:
+                  items:
+                    properties:
+                      hosts:
+                        items:
+                          type: string
+                        type: array
+                      secretName:
+                        type: string
+                    type: object
+                  type: array
+                servicePort:
+                  format: int32
+                  type: integer
+                serviceType:
+                  type: string
+              type: object
             sparkVersion:
               type: string
             timeToLiveSeconds:
@@ -3830,6 +3855,8 @@ spec:
                 creationTimestamp:
                   format: date-time
                   nullable: true
+                  type: string
+                podIp:
                   type: string
                 podName:
                   type: string

@@ -18,6 +18,7 @@ package v1beta2
 
 import (
 	apiv1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -277,6 +278,9 @@ type SparkApplicationSpec struct {
 	// BatchSchedulerOptions provides fine-grained control on how to batch scheduling.
 	// +optional
 	BatchSchedulerOptions *BatchSchedulerConfiguration `json:"batchSchedulerOptions,omitempty"`
+	// SparkUIOptions provides ui control
+	// +optional
+	SparkUIOptions *SparkUIConfiguration `json:"sparkUIOptions,omitempty"`
 }
 
 // BatchSchedulerConfiguration used to configure how to batch scheduling Spark Application
@@ -307,6 +311,26 @@ const (
 	UnknownState          ApplicationStateType = "UNKNOWN"
 	KilledState           ApplicationStateType = "KILLED"
 )
+
+// SparkUIConfiguration is for driver UI specific configuration parameters.
+type SparkUIConfiguration struct {
+	// ServicePort allows configuring the port at service level that might be different from the targetPort.
+	// TargetPort should be the same as the one defined in spark.ui.port
+	// +optional
+	ServicePort *int32 `json:"servicePort,omitempty"`
+	// ServiceType allows configuring the type of the service. Defaults to ClusterIP.
+	// +optional
+	ServiceType *apiv1.ServiceType `json:"serviceType,omitempty"`
+	// clusterIP allows configure the clusterIP value. Defaults to None.
+	// +optional
+	ClusterIP *string `json:"clusterIP,omitempty"`
+	// IngressAnnotations is a map of key,value pairs of annotations that might be added to the ingress object. i.e. specify nginx as ingress.class
+	// +optional
+	IngressAnnotations map[string]string `json:"ingressAnnotations,omitempty"`
+	// TlsHosts is useful If we need to declare SSL certificates to the ingress object
+	// +optional
+	IngressTLS []extensions.IngressTLS `json:"ingressTLS,omitempty"`
+}
 
 // ApplicationState tells the current state of the application and an error message in case of failures.
 type ApplicationState struct {
@@ -546,7 +570,8 @@ type DriverInfo struct {
 	WebUIIngressName    string `json:"webUIIngressName,omitempty"`
 	WebUIIngressAddress string `json:"webUIIngressAddress,omitempty"`
 	PodName             string `json:"podName,omitempty"`
-	PodState            string `json:"podState,omitempty" `
+	PodState            string `json:"podState,omitempty"`
+	PodIp               string `json:"podIp,omitempty"`
 	// +nullable
 	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
 	// +nullable

@@ -336,10 +336,25 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 			if app.Status.TerminationTime.IsZero() {
 				app.Status.TerminationTime = metav1.Now()
 			}
+			if app.Status.DriverInfo.TerminationTime.IsZero() {
+				app.Status.DriverInfo.TerminationTime = metav1.Now()
+			}
 		} else {
 			app.Status.AppState.ErrorMessage = "Driver Pod not found"
 			app.Status.AppState.State = v1beta2.FailingState
-			app.Status.TerminationTime = metav1.Now()
+
+			if app.Spec.RestartPolicy.Type == v1beta2.Never {
+				if app.Status.TerminationTime.IsZero() {
+					app.Status.TerminationTime = metav1.Now()
+				}
+				if app.Status.DriverInfo.TerminationTime.IsZero() {
+					app.Status.DriverInfo.TerminationTime = metav1.Now()
+				}
+
+				if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
+					app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
+				}
+			}
 		}
 		return nil
 	}
@@ -347,6 +362,7 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	app.Status.SparkApplicationID = getSparkApplicationID(driverPod)
 	// reuse executor state as driver pod state 
 	app.Status.DriverInfo.PodState = string(podPhaseToExecutorState(driverPod.Status.Phase))
+	app.Status.DriverInfo.PodIp = driverPod.Status.PodIP
 	// add creationTimestamp
 	if app.Status.DriverInfo.CreationTimestamp.IsZero() {
 		app.Status.DriverInfo.CreationTimestamp = driverPod.CreationTimestamp
@@ -371,6 +387,10 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 		}
 	}
 
+	if app.Status.AppState.State == v1beta2.CompletedState || app.Status.AppState.State == v1beta2.FailedState || app.Status.AppState.State == v1beta2.KilledState {
+		return nil
+	}
+
 	newState := driverStateToApplicationState(driverPod.Status)
 	// Only record a driver event if the application state (derived from the driver pod phase) has changed.
 	if newState != app.Status.AppState.State {
@@ -379,6 +399,16 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	app.Status.AppState.State = newState
 
 	return nil
+}
+
+func isExecutorDone(state string) bool {
+	// uuid: State:Running Start:UTC End:UTC
+	if arr := strings.Split(state, " "); len(arr) == 3 {
+		if arr[0] == string(v1beta2.ExecutorCompletedState) || arr[0] == string(v1beta2.CompletedState) {
+			return true
+		}
+	}
+	return false
 }
 
 // convert state-timestamp from string
@@ -474,9 +504,10 @@ func (c *Controller) getAndUpdateExecutorState(app *v1beta2.SparkApplication) er
 	}
 
 	// Handle missing/deleted executors.
-	for name, oldStatus := range app.Status.ExecutorState {
+	for name, _ := range app.Status.ExecutorState {
 		_, exists := executorStateMap[name]
-		if !isExecutorTerminated(convertToExecutorState(oldStatus)) && !exists && !isDriverRunning(app) {
+		//if !isExecutorTerminated(convertToExecutorState(oldStatus)) && !exists && !isDriverRunning(app) {
+		if !exists && !isDriverRunning(app) {
 			// If ApplicationState is SUCCEEDING, in other words, the driver pod has been completed
 			// successfully. The executor pods terminate and are cleaned up, so we could not found
 			// the executor pod, under this circumstances, we assume the executor pod are completed.
@@ -616,9 +647,10 @@ func (c *Controller) syncSparkApplication(key string) error {
 
 	// first time and delete the pod
 	if labels := app.GetLabels(); labels[sparkApplicationState] == string(v1beta2.KilledState) && appToUpdate.Status.AppState.State != v1beta2.KilledState {
+		c.handleSparkApplicationDeletion(app)
 		appToUpdate.Status.AppState.ErrorMessage = ""
 		appToUpdate.Status.AppState.State = v1beta2.KilledState
-		c.handleSparkApplicationDeletion(app)
+		return nil
 	}
 
 	// Take action based on application state.
@@ -661,6 +693,9 @@ func (c *Controller) syncSparkApplication(key string) error {
 		if !shouldRetry(appToUpdate) {
 			// App will never be retried. Move to terminal FailedState.
 			appToUpdate.Status.AppState.State = v1beta2.FailedState
+			if appToUpdate.Status.TerminationTime.IsZero() {
+				appToUpdate.Status.TerminationTime = metav1.Now()
+			}
 			c.recordSparkApplicationEvent(appToUpdate)
 		} else if hasRetryIntervalPassed(appToUpdate.Spec.RestartPolicy.OnSubmissionFailureRetryInterval, appToUpdate.Status.SubmissionAttempts, appToUpdate.Status.LastSubmissionAttemptTime) {
 			appToUpdate = c.submitSparkApplication(appToUpdate)
@@ -692,6 +727,9 @@ func (c *Controller) syncSparkApplication(key string) error {
 		}
 		c.recordSparkApplicationEvent(appToUpdate)
 	case v1beta2.CompletedState, v1beta2.FailedState:
+		if err := c.completedCRDAchieved(appToUpdate); err != nil {
+			return err
+		}
 		if c.hasApplicationExpired(app) {
 			glog.Infof("Garbage collecting expired SparkApplication %s/%s", app.Namespace, app.Name)
 			err := c.crdClient.SparkoperatorV1beta2().SparkApplications(app.Namespace).Delete(app.Name, metav1.NewDeleteOptions(0))
@@ -711,6 +749,33 @@ func (c *Controller) syncSparkApplication(key string) error {
 		}
 	}
 
+	return nil
+}
+
+func (c *Controller) completedCRDAchieved(appToUpdate *v1beta2.SparkApplication) error {
+	completed := true
+	driverInfo := appToUpdate.Status.DriverInfo
+	// driver is created but condition is not recorded correctly.
+	if driverInfo.PodName != "" &&
+		(driverInfo.TerminationTime.IsZero() ||
+			driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
+			driverInfo.PodState != string(v1beta2.ExecutorCompletedState)) {
+		completed = false
+	}
+
+	executorStatus := appToUpdate.Status.ExecutorState
+
+	for _, e := range executorStatus {
+		if !isExecutorDone(e) {
+			completed = false
+		}
+	}
+
+	if !completed {
+		if err := c.getAndUpdateAppState(appToUpdate); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
