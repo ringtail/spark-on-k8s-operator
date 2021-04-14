@@ -404,7 +404,7 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 func isExecutorDone(state string) bool {
 	// uuid: State:Running Start:UTC End:UTC
 	if arr := strings.Split(state, " "); len(arr) == 3 {
-		if arr[0] == string(v1beta2.ExecutorCompletedState) || arr[0] == string(v1beta2.CompletedState) {
+		if strings.Contains(arr[0], string(v1beta2.ExecutorCompletedState)) || strings.Contains(arr[0], string(v1beta2.ExecutorFailedState)) {
 			return true
 		}
 	}
@@ -455,7 +455,12 @@ func fixExecutorStateWhenPanic(origin string, state v1beta2.ExecutorState, end m
 			}
 		} else if len(arr) == 3 {
 			// append origin status timestamp
-			newStateArr = append(newStateArr, arr[1])
+			if strings.Contains(arr[1], string(v1beta2.ExecutorFailedState)) || strings.Contains(arr[1], string(v1beta2.ExecutorCompletedState)) {
+				newStateArr = append(newStateArr, arr[1])
+			} else {
+				// end time reached and fix state condition
+				newStateArr = append(newStateArr, fmt.Sprintf("State:%s", string(state)))
+			}
 			newStateArr = append(newStateArr, arr[2])
 		} else {
 			newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
@@ -757,8 +762,8 @@ func (c *Controller) completedCRDAchieved(appToUpdate *v1beta2.SparkApplication)
 	driverInfo := appToUpdate.Status.DriverInfo
 	// driver is created but condition is not recorded correctly.
 	if driverInfo.PodName != "" &&
-		(driverInfo.TerminationTime.IsZero() ||
-			driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
+		driverInfo.TerminationTime.IsZero() &&
+		(driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
 			driverInfo.PodState != string(v1beta2.ExecutorCompletedState)) {
 		completed = false
 	}
