@@ -454,13 +454,7 @@ func fixExecutorStateWhenPanic(origin string, state v1beta2.ExecutorState, end m
 				newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
 			}
 		} else if len(arr) == 3 {
-			// append origin status timestamp
-			if strings.Contains(arr[1], string(v1beta2.ExecutorFailedState)) || strings.Contains(arr[1], string(v1beta2.ExecutorCompletedState)) {
-				newStateArr = append(newStateArr, arr[1])
-			} else {
-				// end time reached and fix state condition
-				newStateArr = append(newStateArr, fmt.Sprintf("State:%s", string(state)))
-			}
+			newStateArr = append(newStateArr, arr[1])
 			newStateArr = append(newStateArr, arr[2])
 		} else {
 			newStateArr = append(newStateArr, fmt.Sprintf("Start:%v End:%v", end.Format(time.RFC3339), end.Format(time.RFC3339)))
