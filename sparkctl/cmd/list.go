@@ -18,7 +18,9 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/GoogleCloudPlatform/spark-on-k8s-operator/pkg/apis/sparkoperator.k8s.io/v1beta2"
 	"os"
+	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -39,21 +41,60 @@ var listCmd = &cobra.Command{
 			return
 		}
 
-		if err = doList(crdClientset); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to list SparkApplications: %v\n", err)
+		client, err := getKubeClient()
+		if err != nil {
+			os.Exit(0)
+		}
+		nsItems, err := client.CoreV1().Namespaces().List(metav1.ListOptions{})
+		if err != nil {
+			os.Exit(0)
+		}
+
+		if Namespace == "all-namespaces" {
+			for _, ns := range nsItems.Items {
+				if err = doList(crdClientset, ns.Name); err != nil {
+					fmt.Fprintf(os.Stderr, "failed to list SparkApplications: %v\n", err)
+				}
+			}
+		} else {
+			if err = doList(crdClientset, Namespace); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to list SparkApplications: %v\n", err)
+			}
 		}
 	},
 }
 
-func doList(crdClientset crdclientset.Interface) error {
-	apps, err := crdClientset.SparkoperatorV1beta2().SparkApplications(Namespace).List(metav1.ListOptions{})
+func doList(crdClientset crdclientset.Interface, ns string) error {
+
+	apps, err := crdClientset.SparkoperatorV1beta2().SparkApplications(ns).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
+	items := make([]v1beta2.SparkApplication, 0)
+
+	for _, app := range apps.Items {
+		status := app.Status.ExecutorState
+		found := false
+		for _, v := range status {
+			if arr := strings.Split(v, " "); len(arr) == 3 && strings.Contains(arr[1], "State") {
+				found = true
+				break
+			}
+		}
+		if found == true {
+			items = append(items, app)
+		}
+	}
+
+	if len(items) == 0 {
+		return nil
+	}
+
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Name", "State", "Submission Age", "Termination Age"})
-	for _, app := range apps.Items {
+
+	for _, app := range items {
 		table.Append([]string{
 			string(app.Name),
 			string(app.Status.AppState.State),
