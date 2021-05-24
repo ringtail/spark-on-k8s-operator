@@ -346,25 +346,6 @@ spec:
                   format: int32
                   minimum: 1
                   type: integer
-                customResources:
-                  properties:
-                    limits:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      type: object
-                    requests:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      type: object
-                  type: object
                 dnsConfig:
                   properties:
                     nameservers:
@@ -782,7 +763,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -1426,7 +1406,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -1930,25 +1909,6 @@ spec:
                   format: int32
                   minimum: 1
                   type: integer
-                customResources:
-                  properties:
-                    limits:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      type: object
-                    requests:
-                      additionalProperties:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      type: object
-                  type: object
                 deleteOnTermination:
                   type: boolean
                 dnsConfig:
@@ -2368,7 +2328,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -2908,7 +2867,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -3852,19 +3810,7 @@ spec:
               type: object
             driverInfo:
               properties:
-                creationTimestamp:
-                  format: date-time
-                  nullable: true
-                  type: string
-                podIp:
-                  type: string
                 podName:
-                  type: string
-                podState:
-                  type: string
-                terminationTime:
-                  format: date-time
-                  nullable: true
                   type: string
                 webUIAddress:
                   type: string
