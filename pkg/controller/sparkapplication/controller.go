@@ -330,15 +330,15 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 	if driverPod == nil {
 		if app.Status.AppState.State == v1beta2.KilledState {
 			app.Status.AppState.ErrorMessage = "Driver Pod was deleted"
-			if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
-				app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
-			}
+			//if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
+			//	app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
+			//}
 			if app.Status.TerminationTime.IsZero() {
 				app.Status.TerminationTime = metav1.Now()
 			}
-			if app.Status.DriverInfo.TerminationTime.IsZero() {
-				app.Status.DriverInfo.TerminationTime = metav1.Now()
-			}
+			//if app.Status.DriverInfo.TerminationTime.IsZero() {
+			//	app.Status.DriverInfo.TerminationTime = metav1.Now()
+			//}
 		} else {
 			app.Status.AppState.ErrorMessage = "Driver Pod not found"
 			app.Status.AppState.State = v1beta2.FailingState
@@ -347,13 +347,13 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 				if app.Status.TerminationTime.IsZero() {
 					app.Status.TerminationTime = metav1.Now()
 				}
-				if app.Status.DriverInfo.TerminationTime.IsZero() {
-					app.Status.DriverInfo.TerminationTime = metav1.Now()
-				}
-
-				if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
-					app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
-				}
+				//if app.Status.DriverInfo.TerminationTime.IsZero() {
+				//	app.Status.DriverInfo.TerminationTime = metav1.Now()
+				//}
+				//
+				//if app.Status.DriverInfo.PodState != string(v1beta2.CompletedState) && app.Status.DriverInfo.PodState != string(v1beta2.FailedState) {
+				//	app.Status.DriverInfo.PodState = string(v1beta2.ExecutorFailedState)
+				//}
 			}
 		}
 		return nil
@@ -361,20 +361,20 @@ func (c *Controller) getAndUpdateDriverState(app *v1beta2.SparkApplication) erro
 
 	app.Status.SparkApplicationID = getSparkApplicationID(driverPod)
 	// reuse executor state as driver pod state 
-	app.Status.DriverInfo.PodState = string(podPhaseToExecutorState(driverPod.Status.Phase))
-	app.Status.DriverInfo.PodIp = driverPod.Status.PodIP
+	//app.Status.DriverInfo.PodState = string(podPhaseToExecutorState(driverPod.Status.Phase))
+	//app.Status.DriverInfo.PodIp = driverPod.Status.PodIP
 	// add creationTimestamp
-	if app.Status.DriverInfo.CreationTimestamp.IsZero() {
-		app.Status.DriverInfo.CreationTimestamp = driverPod.CreationTimestamp
-	}
+	//if app.Status.DriverInfo.CreationTimestamp.IsZero() {
+	//	app.Status.DriverInfo.CreationTimestamp = driverPod.CreationTimestamp
+	//}
 
 	if driverPod.Status.Phase == apiv1.PodSucceeded || driverPod.Status.Phase == apiv1.PodFailed {
-		if app.Status.TerminationTime.IsZero() || app.Status.DriverInfo.TerminationTime.IsZero() {
-			now := metav1.Now()
-			app.Status.TerminationTime = now
+		//if app.Status.TerminationTime.IsZero() || app.Status.DriverInfo.TerminationTime.IsZero() {
+		//	now := metav1.Now()
+		//	app.Status.TerminationTime = now
 			// add terminationTime
-			app.Status.DriverInfo.TerminationTime = now
-		}
+			//app.Status.DriverInfo.TerminationTime = now
+		//}
 		if driverPod.Status.Phase == apiv1.PodFailed {
 			if len(driverPod.Status.ContainerStatuses) > 0 {
 				terminatedState := driverPod.Status.ContainerStatuses[0].State.Terminated
@@ -755,10 +755,12 @@ func (c *Controller) completedCRDAchieved(appToUpdate *v1beta2.SparkApplication)
 	completed := true
 	driverInfo := appToUpdate.Status.DriverInfo
 	// driver is created but condition is not recorded correctly.
-	if driverInfo.PodName != "" &&
-		driverInfo.TerminationTime.IsZero() &&
-		(driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
-			driverInfo.PodState != string(v1beta2.ExecutorCompletedState)) {
+	if driverInfo.PodName != "" {
+	//&&
+
+	//	driverInfo.TerminationTime.IsZero() &&
+	//	(driverInfo.PodState != string(v1beta2.ExecutorFailedState) ||
+	//		driverInfo.PodState != string(v1beta2.ExecutorCompletedState)) {
 		completed = false
 	}
 
@@ -858,8 +860,8 @@ func (c *Controller) submitSparkApplication(app *v1beta2.SparkApplication) *v1be
 		},
 		DriverInfo: v1beta2.DriverInfo{
 			PodName:           driverPodName,
-			CreationTimestamp: metav1.Time{},
-			TerminationTime:   metav1.Time{},
+			//CreationTimestamp: metav1.Time{},
+			//TerminationTime:   metav1.Time{},
 		},
 		SubmissionAttempts:        app.Status.SubmissionAttempts + 1,
 		ExecutionAttempts:         app.Status.ExecutionAttempts + 1,

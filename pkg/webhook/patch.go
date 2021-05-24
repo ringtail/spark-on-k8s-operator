@@ -65,7 +65,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addNodeName(pod, app)...)
 	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
-	patchOps = append(patchOps, addCustomResources(pod, app)...)
+	// patchOps = append(patchOps, addCustomResources(pod, app)...)
 
 	op := addSchedulerName(pod, app)
 	if op != nil {
@@ -707,10 +707,10 @@ func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchO
 	var resource corev1.ResourceRequirements
 	ops := make([]patchOperation, 0)
 	if util.IsDriverPod(pod) {
-		resource = app.Spec.Driver.CustomResources
+		//resource = app.Spec.Driver.CustomResources
 	}
 	if util.IsExecutorPod(pod) {
-		resource = app.Spec.Executor.CustomResources
+		//resource = app.Spec.Executor.CustomResources
 	}
 
 	i := 0
