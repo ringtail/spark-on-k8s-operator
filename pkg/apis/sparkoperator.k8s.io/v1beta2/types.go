@@ -488,7 +488,7 @@ type SparkPodSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// Resources to override
 	// +optional
-	CustomResources apiv1.ResourceRequirements `json:"customResources,omitempty"`
+	//CustomResources apiv1.ResourceRequirements `json:"customResources,omitempty"`
 }
 
 // DriverSpec is specification of the driver.
@@ -570,12 +570,12 @@ type DriverInfo struct {
 	WebUIIngressName    string `json:"webUIIngressName,omitempty"`
 	WebUIIngressAddress string `json:"webUIIngressAddress,omitempty"`
 	PodName             string `json:"podName,omitempty"`
-	PodState            string `json:"podState,omitempty"`
-	PodIp               string `json:"podIp,omitempty"`
+	//PodState            string `json:"podState,omitempty"`
+	//PodIp               string `json:"podIp,omitempty"`
 	// +nullable
-	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
+	//CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
 	// +nullable
-	TerminationTime metav1.Time `json:"terminationTime,omitempty"`
+	//TerminationTime metav1.Time `json:"terminationTime,omitempty"`
 }
 
 // SecretInfo captures information of a secret.
