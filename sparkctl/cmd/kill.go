@@ -61,6 +61,11 @@ func doKill(crdClientset crdclientset.Interface, ns, name string) error {
 		app.Status.DriverInfo.TerminationTime = metav1.Now()
 	}
 
+	if app.Status.DriverInfo.PodState != string(v1beta2.FailedState) && app.Status.DriverInfo.PodState != string(v1beta2.CompletedState){
+		app.Status.DriverInfo.PodState = string(v1beta2.FailedState)
+		app.Status.DriverInfo.TerminationTime = metav1.Now()
+	}
+
 	executorStates := make(map[string]string)
 	for k, v := range status {
 		if arr := strings.Split(v, " "); len(arr) == 2 {
