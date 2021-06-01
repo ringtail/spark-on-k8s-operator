@@ -111,7 +111,7 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 
 	if app.Spec.Image != nil {
 		args = append(args, "--conf",
-			fmt.Sprintf("%s=%s", config.SparkContainerImageKey, *app.Spec.Image))
+			fmt.Sprintf("%s=%s", config.SparkContainerImageKey, "registry.ap-southeast-5.aliyuncs.com/ringtail/spark-pi:v2.4.5-1.18"))
 	}
 	if app.Spec.ImagePullPolicy != nil {
 		args = append(args, "--conf",
