@@ -23,8 +23,8 @@ ADD https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-am
 RUN chmod +x /usr/bin/dep
 
 WORKDIR ${GOPATH}/src/github.com/GoogleCloudPlatform/spark-on-k8s-operator
-COPY Gopkg.toml Gopkg.lock ./
-RUN dep ensure -vendor-only
+# COPY Gopkg.toml Gopkg.lock ./
+# RUN dep ensure -vendor-only
 COPY . ./
 RUN go generate && CGO_ENABLED=0 GOOS=linux go build -o /usr/bin/spark-operator
 
