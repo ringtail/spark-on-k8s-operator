@@ -782,7 +782,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -1081,6 +1080,8 @@ spec:
                   type: object
                 podName:
                   pattern: '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
+                  type: string
+                runtimeClassName:
                   type: string
                 schedulerName:
                   type: string
@@ -1426,7 +1427,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -2368,7 +2368,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:
@@ -2566,6 +2565,8 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
+                runtimeClassName:
+                  type: string
                 schedulerName:
                   type: string
                 secrets:
@@ -2908,7 +2909,6 @@ spec:
                               type: string
                           required:
                           - containerPort
-                          - protocol
                           type: object
                         type: array
                         x-kubernetes-list-map-keys:

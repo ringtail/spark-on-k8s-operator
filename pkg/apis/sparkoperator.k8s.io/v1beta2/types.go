@@ -483,7 +483,11 @@ type SparkPodSpec struct {
 	// DnsPolicy settings for pod.
 	// +optional
 	DNSPolicy apiv1.DNSPolicy `json:"dnsPolicy,omitempty"`
-	// Termination grace periond seconds for the pod
+	// runtime class for pod
+	// support kata container
+	// +optional
+	RuntimeClassName string `json:"runtimeClassName,omitempty"`
+	// Termination grace period seconds for the pod
 	// +optional
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// Resources to override

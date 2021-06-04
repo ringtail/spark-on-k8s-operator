@@ -1095,6 +1095,8 @@ spec:
                     podName:
                       pattern: '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
                       type: string
+                    runtimeClassName:
+                      type: string
                     schedulerName:
                       type: string
                     secrets:
@@ -2577,6 +2579,8 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    runtimeClassName:
+                      type: string
                     schedulerName:
                       type: string
                     secrets:

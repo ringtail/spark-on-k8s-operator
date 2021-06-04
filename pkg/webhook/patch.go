@@ -65,6 +65,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addNodeName(pod, app)...)
 	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
+	patchOps = append(patchOps, addRuntimeClassName(pod, app)...)
 	patchOps = append(patchOps, addCustomResources(pod, app)...)
 
 	op := addSchedulerName(pod, app)
@@ -680,6 +681,7 @@ func addDnsPolicy(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperati
 	if dnsPolicy != "" {
 		ops = append(ops, patchOperation{Op: "add", Path: "/spec/dnsPolicy", Value: dnsPolicy})
 	}
+
 	return ops
 }
 
@@ -700,6 +702,25 @@ func addAnnotations(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOpera
 	ops = append(ops, patchOperation{Op: "add", Path: "/metadata/annotations", Value: annotations})
 	// For Pods with hostNetwork, explicitly set its DNS policy  to “ClusterFirstWithHostNet”
 	// Detail: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+	return ops
+}
+
+// add runtimeClassName to spark pod
+func addRuntimeClassName(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var runtimeClassName string
+	if util.IsDriverPod(pod) {
+		runtimeClassName = app.Spec.Driver.RuntimeClassName
+	}
+	if util.IsExecutorPod(pod) {
+		runtimeClassName = app.Spec.Executor.RuntimeClassName
+	}
+
+	if runtimeClassName == "" {
+		return nil
+	}
+
+	var ops []patchOperation
+	ops = append(ops, patchOperation{Op: "add", Path: "/spec/runtimeClassName", Value: runtimeClassName})
 	return ops
 }
 
@@ -736,7 +757,6 @@ func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchO
 			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", limitsPath, encoder.Replace(string(k))), Value: v})
 		}
 	}
-
 	return ops
 }
 
