@@ -101,6 +101,11 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkAppNameKey, app.Name))
 	args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverPodNameKey, driverPodName))
 
+	// Add proxy user
+	if app.Spec.ProxyUser != nil {
+		args = append(args, "--proxy-user", *app.Spec.ProxyUser)
+	}
+	
 	// Add application dependencies.
 	args = append(args, addDependenciesConfOptions(app)...)
 
@@ -143,11 +148,11 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 		}
 
 		if app.Spec.Driver.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, app.Spec.Driver.NodeName))
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkDriverNodeName, *app.Spec.Driver.NodeName))
 		}
 
 		if app.Spec.Executor.NodeName != nil && alibabaCloudFeatureGates[util.SparkConfNodeName] {
-			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, app.Spec.Executor.NodeName))
+			args = append(args, "--conf", fmt.Sprintf("%s=%s", config.SparkExecutorNodeName, *app.Spec.Executor.NodeName))
 		}
 	}
 

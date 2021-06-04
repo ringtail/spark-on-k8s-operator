@@ -66,6 +66,7 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
 	patchOps = append(patchOps, addAnnotations(pod, app)...)
 	patchOps = append(patchOps, addRuntimeClassName(pod, app)...)
+	patchOps = append(patchOps, addCustomResources(pod, app)...)
 
 	op := addSchedulerName(pod, app)
 	if op != nil {
@@ -88,6 +89,17 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	if op != nil {
 		patchOps = append(patchOps, *op)
 	}
+
+	op = addTerminationGracePeriodSeconds(pod, app)
+	if op != nil {
+		patchOps = append(patchOps, *op)
+	}
+
+	op = addPodLifeCycleConfig(pod, app)
+	if op != nil {
+		patchOps = append(patchOps, *op)
+	}
+
 	return patchOps
 }
 
@@ -709,7 +721,42 @@ func addRuntimeClassName(pod *corev1.Pod, app *v1beta2.SparkApplication) []patch
 
 	var ops []patchOperation
 	ops = append(ops, patchOperation{Op: "add", Path: "/spec/runtimeClassName", Value: runtimeClassName})
+	return ops
+}
 
+func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var resource corev1.ResourceRequirements
+	ops := make([]patchOperation, 0)
+	if util.IsDriverPod(pod) {
+		resource = app.Spec.Driver.CustomResources
+	}
+	if util.IsExecutorPod(pod) {
+		resource = app.Spec.Executor.CustomResources
+	}
+
+	i := 0
+	// Find the driver or executor container in the pod.
+	for ; i < len(pod.Spec.Containers); i++ {
+		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			break
+		}
+	}
+	requestsPath := fmt.Sprintf("/spec/containers/%d/resources/requests", i)
+	limitsPath := fmt.Sprintf("/spec/containers/%d/resources/limits", i)
+
+	encoder := strings.NewReplacer("~", "~0", "/", "~1")
+	if len(resource.Requests) != 0 {
+		for k, v := range resource.Requests {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", requestsPath, encoder.Replace(string(k))), Value: v})
+		}
+	}
+
+	if len(resource.Limits) != 0 {
+		for k, v := range resource.Limits {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", limitsPath, encoder.Replace(string(k))), Value: v})
+		}
+	}
 	return ops
 }
 
@@ -729,4 +776,38 @@ func hasInitContainer(pod *corev1.Pod, container *corev1.Container) bool {
 		}
 	}
 	return false
+}
+
+func addTerminationGracePeriodSeconds(pod *corev1.Pod, app *v1beta2.SparkApplication) *patchOperation {
+	path := "/spec/terminationGracePeriodSeconds"
+	var gracePeriodSeconds *int64
+
+	if util.IsDriverPod(pod) {
+		gracePeriodSeconds = app.Spec.Driver.TerminationGracePeriodSeconds
+	} else if util.IsExecutorPod(pod) {
+		gracePeriodSeconds = app.Spec.Executor.TerminationGracePeriodSeconds
+	}
+	if gracePeriodSeconds == nil {
+		return nil
+	}
+	return &patchOperation{Op: "add", Path: path, Value: *gracePeriodSeconds}
+}
+
+func addPodLifeCycleConfig(pod *corev1.Pod, app *v1beta2.SparkApplication) *patchOperation {
+	var lifeCycle *corev1.Lifecycle
+	if util.IsDriverPod(pod) {
+		lifeCycle = app.Spec.Driver.Lifecycle
+	}
+	if lifeCycle == nil {
+		return nil
+	}
+	i := 0
+	// Find the driver container in the pod.
+	for ; i < len(pod.Spec.Containers); i++ {
+		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName {
+			break
+		}
+	}
+	path := fmt.Sprintf("/spec/containers/%d/lifecycle", i)
+	return &patchOperation{Op: "add", Path: path, Value: *lifeCycle}
 }

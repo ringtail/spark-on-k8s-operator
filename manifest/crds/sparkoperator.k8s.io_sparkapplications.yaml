@@ -4,7 +4,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.2.5
   creationTimestamp: null
   name: sparkapplications.sparkoperator.k8s.io
 spec:
@@ -346,6 +346,25 @@ spec:
                   format: int32
                   minimum: 1
                   type: integer
+                customResources:
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      type: object
+                  type: object
                 dnsConfig:
                   properties:
                     nameservers:
@@ -946,6 +965,109 @@ spec:
                   additionalProperties:
                     type: string
                   type: object
+                lifecycle:
+                  properties:
+                    postStart:
+                      properties:
+                        exec:
+                          properties:
+                            command:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        httpGet:
+                          properties:
+                            host:
+                              type: string
+                            httpHeaders:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                            path:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            scheme:
+                              type: string
+                          required:
+                          - port
+                          type: object
+                        tcpSocket:
+                          properties:
+                            host:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - port
+                          type: object
+                      type: object
+                    preStop:
+                      properties:
+                        exec:
+                          properties:
+                            command:
+                              items:
+                                type: string
+                              type: array
+                          type: object
+                        httpGet:
+                          properties:
+                            host:
+                              type: string
+                            httpHeaders:
+                              items:
+                                properties:
+                                  name:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - name
+                                - value
+                                type: object
+                              type: array
+                            path:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                            scheme:
+                              type: string
+                          required:
+                          - port
+                          type: object
+                        tcpSocket:
+                          properties:
+                            host:
+                              type: string
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - port
+                          type: object
+                      type: object
+                  type: object
                 memory:
                   type: string
                 memoryOverhead:
@@ -1482,6 +1604,9 @@ spec:
                     - name
                     type: object
                   type: array
+                terminationGracePeriodSeconds:
+                  format: int64
+                  type: integer
                 tolerations:
                   items:
                     properties:
@@ -1805,6 +1930,25 @@ spec:
                   format: int32
                   minimum: 1
                   type: integer
+                customResources:
+                  properties:
+                    limits:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      type: object
+                    requests:
+                      additionalProperties:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      type: object
+                  type: object
                 deleteOnTermination:
                   type: boolean
                 dnsConfig:
@@ -2942,6 +3086,9 @@ spec:
                     - name
                     type: object
                   type: array
+                terminationGracePeriodSeconds:
+                  format: int64
+                  type: integer
                 tolerations:
                   items:
                     properties:
@@ -3037,6 +3184,8 @@ spec:
               additionalProperties:
                 type: string
               type: object
+            proxyUser:
+              type: string
             pythonVersion:
               enum:
               - "2"
@@ -3076,6 +3225,31 @@ spec:
               type: object
             sparkConfigMap:
               type: string
+            sparkUIOptions:
+              properties:
+                clusterIP:
+                  type: string
+                ingressAnnotations:
+                  additionalProperties:
+                    type: string
+                  type: object
+                ingressTLS:
+                  items:
+                    properties:
+                      hosts:
+                        items:
+                          type: string
+                        type: array
+                      secretName:
+                        type: string
+                    type: object
+                  type: array
+                servicePort:
+                  format: int32
+                  type: integer
+                serviceType:
+                  type: string
+              type: object
             sparkVersion:
               type: string
             timeToLiveSeconds:
@@ -3678,7 +3852,19 @@ spec:
               type: object
             driverInfo:
               properties:
+                creationTimestamp:
+                  format: date-time
+                  nullable: true
+                  type: string
+                podIp:
+                  type: string
                 podName:
+                  type: string
+                podState:
+                  type: string
+                terminationTime:
+                  format: date-time
+                  nullable: true
                   type: string
                 webUIAddress:
                   type: string
