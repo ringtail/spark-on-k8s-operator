@@ -1176,11 +1176,3 @@ func (c *Controller) hasApplicationExpired(app *v1beta2.SparkApplication) bool {
 
 	return false
 }
-
-// some pods would miss end timestamp
-func notFoundEndTimestamp(oldStatus string) bool {
-	if strings.Contains(oldStatus, "End") {
-		return true
-	}
-	return false
-}
