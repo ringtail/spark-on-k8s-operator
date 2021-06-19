@@ -105,13 +105,16 @@ func buildSubmissionCommandArgs(app *v1beta2.SparkApplication, driverPodName str
 	if app.Spec.ProxyUser != nil {
 		args = append(args, "--proxy-user", *app.Spec.ProxyUser)
 	}
-	
+
 	// Add application dependencies.
 	args = append(args, addDependenciesConfOptions(app)...)
 
 	if app.Spec.Image != nil {
+		if os.Getenv("BASE_IMAGE") != "" {
+			*app.Spec.Image = os.Getenv("BASE_IMAGE")
+		}
 		args = append(args, "--conf",
-			fmt.Sprintf("%s=%s", config.SparkContainerImageKey, "registry-vpc.ap-southeast-5.aliyuncs.com/ringtail/spark-pi:v2.4.5-1.18"))
+			fmt.Sprintf("%s=%s", config.SparkContainerImageKey, *app.Spec.Image))
 	}
 	if app.Spec.ImagePullPolicy != nil {
 		args = append(args, "--conf",
