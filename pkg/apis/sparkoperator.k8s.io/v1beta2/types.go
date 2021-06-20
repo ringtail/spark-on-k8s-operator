@@ -309,6 +309,7 @@ const (
 	SucceedingState       ApplicationStateType = "SUCCEEDING"
 	FailingState          ApplicationStateType = "FAILING"
 	UnknownState          ApplicationStateType = "UNKNOWN"
+	KillingState          ApplicationStateType = "KILLING"
 	KilledState           ApplicationStateType = "KILLED"
 )
 
