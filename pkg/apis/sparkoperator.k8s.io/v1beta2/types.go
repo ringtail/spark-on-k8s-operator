@@ -300,22 +300,6 @@ type BatchSchedulerConfiguration struct {
 	Resources apiv1.ResourceList `json:"resources,omitempty"`
 }
 
-// SparkUIConfiguration is for driver UI specific configuration parameters.
-type SparkUIConfiguration struct {
-	// ServicePort allows configuring the port at service level that might be different from the targetPort.
-	// TargetPort should be the same as the one defined in spark.ui.port
-	// +optional
-	ServicePort *int32 `json:"servicePort"`
-	// ServiceType allows configuring the type of the service. Defaults to ClusterIP.
-	// +optional
-	ServiceType *apiv1.ServiceType `json:"serviceType"`
-	// IngressAnnotations is a map of key,value pairs of annotations that might be added to the ingress object. i.e. specify nginx as ingress.class
-	// +optional
-	IngressAnnotations map[string]string `json:"ingressAnnotations,omitempty"`
-	// TlsHosts is useful If we need to declare SSL certificates to the ingress object
-	// +optional
-	IngressTLS []extensions.IngressTLS `json:"ingressTLS,omitempty"`
-}
 
 // ApplicationStateType represents the type of the current state of an application.
 type ApplicationStateType string
@@ -333,7 +317,28 @@ const (
 	SucceedingState       ApplicationStateType = "SUCCEEDING"
 	FailingState          ApplicationStateType = "FAILING"
 	UnknownState          ApplicationStateType = "UNKNOWN"
+	KilledState           ApplicationStateType = "KILLED"
 )
+
+// SparkUIConfiguration is for driver UI specific configuration parameters.
+type SparkUIConfiguration struct {
+	// ServicePort allows configuring the port at service level that might be different from the targetPort.
+	// TargetPort should be the same as the one defined in spark.ui.port
+	// +optional
+	ServicePort *int32 `json:"servicePort,omitempty"`
+	// ServiceType allows configuring the type of the service. Defaults to ClusterIP.
+	// +optional
+	ServiceType *apiv1.ServiceType `json:"serviceType,omitempty"`
+	// clusterIP allows configure the clusterIP value. Defaults to None.
+	// +optional
+	ClusterIP *string `json:"clusterIP,omitempty"`
+	// IngressAnnotations is a map of key,value pairs of annotations that might be added to the ingress object. i.e. specify nginx as ingress.class
+	// +optional
+	IngressAnnotations map[string]string `json:"ingressAnnotations,omitempty"`
+	// TlsHosts is useful If we need to declare SSL certificates to the ingress object
+	// +optional
+	IngressTLS []extensions.IngressTLS `json:"ingressTLS,omitempty"`
+}
 
 // ApplicationState tells the current state of the application and an error message in case of failures.
 type ApplicationState struct {
@@ -382,7 +387,7 @@ type SparkApplicationStatus struct {
 	// AppState tells the overall application state.
 	AppState ApplicationState `json:"applicationState,omitempty"`
 	// ExecutorState records the state of executors by executor Pod names.
-	ExecutorState map[string]ExecutorState `json:"executorState,omitempty"`
+	ExecutorState map[string]string `json:"executorState,omitempty"`
 	// ExecutionAttempts is the total number of attempts to run a submitted application to completion.
 	// Incremented upon each attempted run of the application and reset upon invalidation.
 	ExecutionAttempts int32 `json:"executionAttempts,omitempty"`
@@ -509,12 +514,25 @@ type SparkPodSpec struct {
 	// DnsConfig dns settings for the pod, following the Kubernetes specifications.
 	// +optional
 	DNSConfig *apiv1.PodDNSConfig `json:"dnsConfig,omitempty"`
-	// Termination grace periond seconds for the pod
-	// +optional
-	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// ServiceAccount is the name of the custom Kubernetes service account used by the pod.
 	// +optional
 	ServiceAccount *string `json:"serviceAccount,omitempty"`
+	// NodeName is kubernetes node name to be added to the driver and executor pods.
+	// +optional
+	NodeName *string `json:"nodeName,omitempty"`
+	// DnsPolicy settings for pod.
+	// +optional
+	DNSPolicy apiv1.DNSPolicy `json:"dnsPolicy,omitempty"`
+	// runtime class for pod
+	// support kata container
+	// +optional
+	RuntimeClassName string `json:"runtimeClassName,omitempty"`
+	// Termination grace period seconds for the pod
+	// +optional
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
+	// Resources to override
+	// +optional
+	CustomResources apiv1.ResourceRequirements `json:"customResources,omitempty"`
 }
 
 // DriverSpec is specification of the driver.
@@ -600,6 +618,12 @@ type DriverInfo struct {
 	WebUIIngressName    string `json:"webUIIngressName,omitempty"`
 	WebUIIngressAddress string `json:"webUIIngressAddress,omitempty"`
 	PodName             string `json:"podName,omitempty"`
+	PodState            string `json:"podState,omitempty"`
+	PodIp               string `json:"podIp,omitempty"`
+	// +nullable
+	CreationTimestamp metav1.Time `json:"creationTimestamp,omitempty"`
+	// +nullable
+	TerminationTime metav1.Time `json:"terminationTime,omitempty"`
 }
 
 // SecretInfo captures information of a secret.

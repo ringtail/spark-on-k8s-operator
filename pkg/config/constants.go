@@ -85,6 +85,8 @@ const (
 	// SparkDriverSecretKeyPrefix is the configuration property prefix for specifying secrets to be mounted into the
 	// driver.
 	SparkDriverSecretKeyPrefix = "spark.kubernetes.driver.secrets."
+	// SparkDriverTolerationPrefix is the spark toleration configuration key prefix for toleration on the driver Pod.
+	SparkDriverTolerationsPrefix = "spark.kubernetes.driver.toleration."
 	// SparkExecutorSecretKeyPrefix is the configuration property prefix for specifying secrets to be mounted into the
 	// executors.
 	SparkExecutorSecretKeyPrefix = "spark.kubernetes.executor.secrets."
@@ -112,6 +114,9 @@ const (
 	SparkDriverVolumesPrefix = "spark.kubernetes.driver.volumes."
 	// SparkExecutorVolumesPrefix is the Spark volumes configuration for mounting a volume into the driver pod.
 	SparkExecutorVolumesPrefix = "spark.kubernetes.executor.volumes."
+	// SparkExecutorTolerationPrefix is the spark toleration configuration key prefix for toleration on the driver Pod.
+	SparkExecutorTolerationsPrefix = "spark.kubernetes.executor.toleration."
+
 	// SparkDriverPodNameKey is the Spark configuration key for driver pod name.
 	SparkDriverPodNameKey = "spark.kubernetes.driver.pod.name"
 	// SparkDriverServiceAccountName is the Spark configuration key for specifying name of the Kubernetes service
@@ -166,6 +171,10 @@ const (
 	// SparkDynamicAllocationMaxExecutors is the Spark configuration key for specifying the
 	// upper bound of the number of executors to request if dynamic allocation is enabled.
 	SparkDynamicAllocationMaxExecutors = "spark.dynamicAllocation.maxExecutors"
+	// SparkDriverNodeName is nodeName of the node that spark driver running on
+	SparkDriverNodeName = "spark.kubernetes.driver.node.name"
+	// SparkExecutorNodeName is nodeName of the node that spark executor running on
+	SparkExecutorNodeName = "spark.kubernetes.executor.node.name"
 )
 
 const (

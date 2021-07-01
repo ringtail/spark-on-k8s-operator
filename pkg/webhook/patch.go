@@ -62,6 +62,11 @@ func patchSparkPod(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperat
 	patchOps = append(patchOps, addDNSConfig(pod, app)...)
 	patchOps = append(patchOps, addEnvVars(pod, app)...)
 	patchOps = append(patchOps, addEnvFrom(pod, app)...)
+	patchOps = append(patchOps, addNodeName(pod, app)...)
+	patchOps = append(patchOps, addDnsPolicy(pod, app)...)
+	patchOps = append(patchOps, addAnnotations(pod, app)...)
+	patchOps = append(patchOps, addRuntimeClassName(pod, app)...)
+	patchOps = append(patchOps, addCustomResources(pod, app)...)
 
 	op := addSchedulerName(pod, app)
 	if op != nil {
@@ -198,10 +203,54 @@ func addVolumeMount(pod *corev1.Pod, mount corev1.VolumeMount) *patchOperation {
 
 func addEnvVars(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
 	var envVars []corev1.EnvVar
+	var containerName string
+
+	envVarsExist := make([]corev1.EnvVar, 0)
+	for _, container := range pod.Spec.Containers {
+		if container.Name == config.SparkDriverContainerName || containerName == config.SparkExecutorContainerName {
+			// set default values
+			envVarsExist = container.Env
+		}
+	}
+
 	if util.IsDriverPod(pod) {
 		envVars = app.Spec.Driver.Env
+		containerName = config.SparkDriverContainerName
+		envVarsDeprecated := app.Spec.Driver.EnvVars
+
+		for k, v := range envVarsDeprecated {
+			found := false
+			for _, env := range envVarsExist {
+				if env.Name == k {
+					found = true
+				}
+			}
+			if found == false {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  k,
+					Value: v,
+				})
+			}
+		}
 	} else if util.IsExecutorPod(pod) {
 		envVars = app.Spec.Executor.Env
+		containerName = config.SparkExecutorContainerName
+		envVarsDeprecated := app.Spec.Executor.EnvVars
+
+		for k, v := range envVarsDeprecated {
+			found := false
+			for _, env := range envVarsExist {
+				if env.Name == k {
+					found = true
+				}
+			}
+			if found == false {
+				envVars = append(envVars, corev1.EnvVar{
+					Name:  k,
+					Value: v,
+				})
+			}
+		}
 	}
 
 	i := findContainer(pod)
@@ -703,6 +752,119 @@ func addHostNetwork(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOpera
 	return ops
 }
 
+func addNodeName(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var nodeName *string
+	if util.IsDriverPod(pod) {
+		nodeName = app.Spec.Driver.NodeName
+	}
+	if util.IsExecutorPod(pod) {
+		nodeName = app.Spec.Executor.NodeName
+	}
+
+	if nodeName == nil {
+		return nil
+	}
+
+	var ops []patchOperation
+	ops = append(ops, patchOperation{Op: "add", Path: "/spec/nodeName", Value: nodeName})
+	// For Pods with hostNetwork, explicitly set its DNS policy  to “ClusterFirstWithHostNet”
+	// Detail: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+	return ops
+}
+
+func addDnsPolicy(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var ops []patchOperation
+	var dnsPolicy corev1.DNSPolicy
+	if util.IsDriverPod(pod) && !util.IsHostNetwork(pod) {
+		dnsPolicy = app.Spec.Driver.DNSPolicy
+	}
+
+	if util.IsExecutorPod(pod) && !util.IsHostNetwork(pod) {
+		dnsPolicy = app.Spec.Executor.DNSPolicy
+	}
+
+	if dnsPolicy != "" {
+		ops = append(ops, patchOperation{Op: "add", Path: "/spec/dnsPolicy", Value: dnsPolicy})
+	}
+
+	return ops
+}
+
+func addAnnotations(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var annotations map[string]string
+	if util.IsDriverPod(pod) {
+		annotations = app.Spec.Driver.Annotations
+	}
+	if util.IsExecutorPod(pod) {
+		annotations = app.Spec.Executor.Annotations
+	}
+
+	if annotations == nil {
+		return nil
+	}
+
+	var ops []patchOperation
+	ops = append(ops, patchOperation{Op: "add", Path: "/metadata/annotations", Value: annotations})
+	// For Pods with hostNetwork, explicitly set its DNS policy  to “ClusterFirstWithHostNet”
+	// Detail: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+	return ops
+}
+
+// add runtimeClassName to spark pod
+func addRuntimeClassName(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var runtimeClassName string
+	if util.IsDriverPod(pod) {
+		runtimeClassName = app.Spec.Driver.RuntimeClassName
+	}
+	if util.IsExecutorPod(pod) {
+		runtimeClassName = app.Spec.Executor.RuntimeClassName
+	}
+
+	if runtimeClassName == "" {
+		return nil
+	}
+
+	var ops []patchOperation
+	ops = append(ops, patchOperation{Op: "add", Path: "/spec/runtimeClassName", Value: runtimeClassName})
+	return ops
+}
+
+func addCustomResources(pod *corev1.Pod, app *v1beta2.SparkApplication) []patchOperation {
+	var resource corev1.ResourceRequirements
+	ops := make([]patchOperation, 0)
+	if util.IsDriverPod(pod) {
+		resource = app.Spec.Driver.CustomResources
+	}
+	if util.IsExecutorPod(pod) {
+		resource = app.Spec.Executor.CustomResources
+	}
+
+	i := 0
+	// Find the driver or executor container in the pod.
+	for ; i < len(pod.Spec.Containers); i++ {
+		if pod.Spec.Containers[i].Name == config.SparkDriverContainerName ||
+			pod.Spec.Containers[i].Name == config.SparkExecutorContainerName {
+			break
+		}
+	}
+	requestsPath := fmt.Sprintf("/spec/containers/%d/resources/requests", i)
+	limitsPath := fmt.Sprintf("/spec/containers/%d/resources/limits", i)
+
+	encoder := strings.NewReplacer("~", "~0", "/", "~1")
+	if len(resource.Requests) != 0 {
+		for k, v := range resource.Requests {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", requestsPath, encoder.Replace(string(k))), Value: v})
+		}
+	}
+
+	if len(resource.Limits) != 0 {
+		for k, v := range resource.Limits {
+			ops = append(ops, patchOperation{Op: "add", Path: fmt.Sprintf("%s/%s", limitsPath, encoder.Replace(string(k))), Value: v})
+		}
+	}
+	return ops
+}
+
 func hasContainer(pod *corev1.Pod, container *corev1.Container) bool {
 	for _, c := range pod.Spec.Containers {
 		if container.Name == c.Name && container.Image == c.Image {
@@ -744,7 +906,6 @@ func addPodLifeCycleConfig(pod *corev1.Pod, app *v1beta2.SparkApplication) *patc
 	if lifeCycle == nil {
 		return nil
 	}
-
 	i := 0
 	// Find the driver container in the pod.
 	for ; i < len(pod.Spec.Containers); i++ {
@@ -760,7 +921,6 @@ func addPodLifeCycleConfig(pod *corev1.Pod, app *v1beta2.SparkApplication) *patc
 	path := fmt.Sprintf("/spec/containers/%d/lifecycle", i)
 	return &patchOperation{Op: "add", Path: path, Value: *lifeCycle}
 }
-
 func findContainer(pod *corev1.Pod) int {
 	var candidateContainerNames []string
 	if util.IsDriverPod(pod) {
@@ -769,11 +929,9 @@ func findContainer(pod *corev1.Pod) int {
 		// Spark 3.x changed the default executor container name so we need to include both.
 		candidateContainerNames = append(candidateContainerNames, config.SparkExecutorContainerName, config.Spark3DefaultExecutorContainerName)
 	}
-
 	if len(candidateContainerNames) == 0 {
 		return -1
 	}
-
 	for i := 0; i < len(pod.Spec.Containers); i++ {
 		for _, name := range candidateContainerNames {
 			if pod.Spec.Containers[i].Name == name {

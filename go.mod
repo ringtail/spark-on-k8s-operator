@@ -29,6 +29,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.16.9-beta.0
 	k8s.io/client-go v0.16.9-beta.0
+	k8s.io/code-generator v0.16.6 // indirect
 	k8s.io/kubectl v0.0.0
 	k8s.io/kubernetes v1.16.2
 	k8s.io/utils v0.0.0-20200414100711-2df71ebbae66 // indirect

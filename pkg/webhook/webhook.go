@@ -228,6 +228,7 @@ func (wh *WebHook) Start(stopCh <-chan struct{}) error {
 func (wh *WebHook) Stop() error {
 	// Do not deregister if strict error handling is enabled; pod deletions are common, and we
 	// don't want to create windows where pods can be created without being subject to the webhook.
+
 	if wh.failurePolicy != arv1beta1.Fail {
 		if err := wh.selfDeregistration(userConfig.webhookConfigName); err != nil {
 			return err
@@ -387,6 +388,7 @@ func (wh *WebHook) selfRegistration(webhookConfigName string) error {
 		},
 		FailurePolicy:     &wh.failurePolicy,
 		NamespaceSelector: wh.selector,
+
 	}
 
 	validatingWebhook := v1beta1.ValidatingWebhook{

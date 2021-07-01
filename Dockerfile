@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-ARG SPARK_IMAGE=gcr.io/spark-operator/spark:v3.0.0
+ARG SPARK_IMAGE=registry.ap-southeast-1.aliyuncs.com/acs/spark:ack-3.0.0-latest
 
 FROM golang:1.14.1-alpine as builder
 
@@ -41,6 +41,6 @@ RUN apt-get update \
     && apt-get install -y openssl curl tini \
     && rm -rf /var/lib/apt/lists/*
 COPY hack/gencerts.sh /usr/bin/
-
+ENV HTTP2_DISABLE=true
 COPY entrypoint.sh /usr/bin/
 ENTRYPOINT ["/usr/bin/entrypoint.sh"]

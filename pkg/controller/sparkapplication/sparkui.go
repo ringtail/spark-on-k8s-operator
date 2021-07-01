@@ -135,6 +135,7 @@ func createSparkUIService(
 	if err != nil {
 		return nil, fmt.Errorf("invalid Spark UI servicePort: %d", port)
 	}
+
 	tPort, err := getUITargetPort(app)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Spark UI targetPort: %d", tPort)
@@ -162,7 +163,13 @@ func createSparkUIService(
 				config.SparkRoleLabel:    config.SparkDriverRole,
 			},
 			Type: getUIServiceType(app),
+			ClusterIP: apiv1.ClusterIPNone,
 		},
+	}
+
+	// allow headless service.
+	if app.Spec.SparkUIOptions != nil && app.Spec.SparkUIOptions.ClusterIP != nil {
+		service.Spec.ClusterIP = *app.Spec.SparkUIOptions.ClusterIP
 	}
 
 	glog.Infof("Creating a service %s for the Spark UI for application %s", service.Name, app.Name)
